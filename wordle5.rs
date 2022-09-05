@@ -45,6 +45,18 @@ fn make_letter_ids(ids: &[u32]) -> Vec<(u32, Vec<u32>)> {
     letter_ids
 }
 
+#[test]
+fn test_make_letter_ids() {
+    let letter_ids = make_letter_ids(&[0b11111]);
+    for (c, v) in letter_ids {
+        if c < 5 {
+            assert_eq!(v, [0b11111]);
+        } else {
+            assert!(v.is_empty());
+        }
+    }
+}
+
 fn solvify(
     letter_ids: &[(u32, Vec<u32>)],
     cur: &mut [u32; 5],
@@ -52,20 +64,22 @@ fn solvify(
     mut posn: usize,
     count: usize,
     seen: u32,
+    skipped: bool,
 ) {
     if count == 5 {
         solns.push(*cur);
         return;
     }
 
-    for (c, _) in &letter_ids[posn..] {
-        if seen & (1 << *c) == 0 {
+    loop {
+        if posn >= 26 {
+            return;
+        }
+        let c = letter_ids[posn].0;
+        if seen & (1 << c) == 0 {
             break;
         }
         posn += 1;
-    }
-    if posn >= 26 {
-        return;
     }
 
     for &id in &letter_ids[posn].1 {
@@ -73,14 +87,17 @@ fn solvify(
             continue;
         }
         cur[count] = id;
-        solvify(letter_ids, cur, solns, posn + 1, count + 1, seen | id);
+        solvify(letter_ids, cur, solns, posn + 1, count + 1, seen | id, skipped);
+    }
+    if !skipped {
+        solvify(letter_ids, cur, solns, posn + 1, count, seen, true);
     }
 }
 
 fn solve(letter_ids: &[(u32, Vec<u32>)]) -> Vec<[u32; 5]> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
-    solvify(letter_ids, &mut partial, &mut solns, 0, 0, 0);
+    solvify(letter_ids, &mut partial, &mut solns, 0, 0, 0, false);
     solns
 }
 
