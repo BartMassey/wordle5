@@ -21,13 +21,19 @@ My solution is blazingly fast, solving the standard problem
 in about 12ms of wall clock time on my 12-core Ryzen 9 3900X
 desktop using `rayon` parallelism. The solution time is
 about 25ms single-threaded; use `--no-default-features` in
-the build for this option.
+the build for this option. The comment thread on this
+[YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
+the source of fastest solutions right now: I'm about a
+factor of two faster than the best reported solution, and
+comparable when single-threaded.
 
 Flamegraph profiling shows that about two-thirds of the
-runtime is spent in the solver proper, so there's still some
-room for improvement, albeit with diminishing
-returns. Larger dictionaries would load the solver somewhat
-harder.
+runtime of the single-threaded version is spent in the
+solver proper, so there's still some room for improvement
+there, albeit with diminishing returns. For the
+multithreaded version the solver time appears to be in the
+noise: much larger dictionaries would be needed to exercise
+24 threads sufficiently.
 
 The `main` branch code uses `std::fs::read_to_string()`
 followed by line splitting of the string to read the
