@@ -1,6 +1,17 @@
 //! Solver for Matt Parker's "Wordle5" problem: find five
 //! five-letter words from a dictionary that collectively
 //! contain 25 of the 26 letters of the English alphabet.
+//!
+//! The general solution idea is to try to pick words
+//! containing 25 letters in order of increasing letter
+//! difficulty: number of words containing the letter is a
+//! difficulty proxy, with more words being easier.
+//!
+//! A pruning trick is used to shorten the number of words
+//! examined for "easy" letters, by noting that all but one
+//! of the previous letters must be used by the time you get
+//! to a new letter. (All-but-one because you may have
+//! skipped one because 25 of 26 letters will be used.)
 
 use std::collections::HashMap;
 
@@ -113,6 +124,7 @@ type LetterGroup = (Char, Vec<LetterSet>);
 /// ('s', ["fishy", "strip"])
 /// ```
 fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
+    // Make the letter groups.
     let mut groups = Vec::new();
     for c in 0..26 {
         // Save a letter group for each letter `c`.
@@ -123,8 +135,20 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
             .collect();
         groups.push((c, cs));
     }
-    // Sort letter groups by increasing length of word list.
+
+    // Sort the letter groups by increasing length of word list.
     groups.sort_unstable_by_key(|(_, cs)| cs.len());
+
+    // Filter each letter group using the idea that only
+    // words that contain at most one of the previously-used
+    // letters can be used, independent of the solution
+    // shape so far.
+    let mut seen: LetterSet = 0;
+    for (c, words) in &mut groups {
+        words.retain(|w| (w & seen).count_ones() < 2);
+        seen |= 1 << *c;
+    }
+
     groups
 }
 
