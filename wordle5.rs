@@ -71,13 +71,24 @@ fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
     let mut dict: HashMap<LetterSet, String> = HashMap::new();
 
     // Process each specified dictionary in turn.
-    for d in dicts {
+    for dname in dicts {
+        use std::io::BufRead;
+
         // Read and filter the dictionary `d`.
-        let text = std::fs::read_to_string(d).unwrap_or_else(|e| {
-            println!("Could not read dictionary {d}: {e}");
+        let words = std::fs::File::open(&dname).unwrap_or_else(|e| {
+            println!("Could not open dictionary {dname}: {e}");
             std::process::exit(1);
         });
-        let words = text.trim().split('\n').filter_map(five_letter);
+        let words = std::io::BufReader::new(words);
+
+        // Use your words.
+        let words = words.lines().filter_map(|s| {
+            let s = s.unwrap_or_else(|e| {
+                println!("error reading {dname}: {e}");
+                std::process::exit(1);
+            });
+            five_letter(&s)
+        });
 
         // Extend the working dictionary, taking anagrams
         // into account.
