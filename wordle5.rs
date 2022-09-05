@@ -45,8 +45,43 @@ fn make_letter_ids(ids: &[u32]) -> Vec<(u32, Vec<u32>)> {
     letter_ids
 }
 
-fn solve(letter_ids: &[(u32, Vec<u32>)]) -> impl Iterator<Item = [u32; 5]> {
-    todo!()
+fn solvify(
+    letter_ids: &[(u32, Vec<u32>)],
+    cur: &mut [u32; 5],
+    solns: &mut Vec<[u32; 5]>,
+    mut posn: usize,
+    count: usize,
+    seen: u32,
+) {
+    if count == 5 {
+        solns.push(*cur);
+        return;
+    }
+
+    for (c, _) in &letter_ids[posn..] {
+        if seen & (1 << *c) == 0 {
+            break;
+        }
+        posn += 1;
+    }
+    if posn >= 26 {
+        return;
+    }
+
+    for &id in &letter_ids[posn].1 {
+        if seen & id != 0 {
+            continue;
+        }
+        cur[count] = id;
+        solvify(letter_ids, cur, solns, posn + 1, count + 1, seen | id);
+    }
+}
+
+fn solve(letter_ids: &[(u32, Vec<u32>)]) -> Vec<[u32; 5]> {
+    let mut partial = [0; 5];
+    let mut solns = Vec::new();
+    solvify(letter_ids, &mut partial, &mut solns, 0, 0, 0);
+    solns
 }
 
 fn main() {
@@ -54,7 +89,7 @@ fn main() {
     let ids: Vec<u32> = dict.keys().copied().collect();
     let letter_ids = make_letter_ids(&ids);
 
-    for soln in solve(&letter_ids) {
+    for soln in solve(&letter_ids).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }
