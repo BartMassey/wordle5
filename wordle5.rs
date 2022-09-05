@@ -264,8 +264,7 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
     ws.push(0);
 
     // Run the parallel loop.
-    let solutions: Vec<Vec<Solution>> = ws
-        .as_slice()
+    ws.as_slice()
         .into_par_iter()
         .map(|&w| {
             let mut partial = [0; 5];
@@ -279,14 +278,10 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
             }
             solns
         })
-        .collect();
-    
-    // Collect up the results.
-    let mut result = Vec::new();
-    for ss in solutions {
-        result.extend(ss);
-    }
-    result
+        .reduce(Vec::new, |mut solns1, solns2| {
+            solns1.extend(solns2);
+            solns1
+        })
 }
 
 /// Solve a Wordle5 problem using dictionaries specified on
