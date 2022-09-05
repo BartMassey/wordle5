@@ -9,3 +9,6 @@ path = "wordle5.rs"
 
 [dependencies]
 ordered-float = "3.0.0"
+
+[features]
+anagrams = []
