@@ -12,8 +12,15 @@ this solution inspired me to create my own solution in Rust.
 
 My solution is blazingly fast, solving the standard problem
 in about 25ms of wall clock time single-threaded on my Ryzen
-9 3900X desktop. I've also tried to make my solution clear
-and readable. Please see the Rustdoc for details.
+9 3900X desktop. Flamegraph profiling shows that about
+two-thirds of the runtime is spent in the solver proper, so
+there's still some room for improvement, albeit with
+diminishing returns. Larger dictionaries would load the
+solver somewhat harder.
+
+I've also tried to make my solution clear and
+readable. Please see the Rustdoc and source code for
+details.
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
