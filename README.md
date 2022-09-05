@@ -4,11 +4,14 @@ Bart Massey 2022
 YouTuber Matt Parker proposed an interesting problem
 inspired by the game *Wordle* a while back: find a set of
 five five-letter words from a dictionary that collectively
-contain 25 of the 26 letters of the English alphabet. For a
-summary history of the problem, see the `README` in Philip
-Meier's
+contain 25 of the 26 letters of the English alphabet.
+
+For a summary history of the problem, see the `README` in
+Philip Meier's
 [solution repo](https://github.com/pmeier/parker-word-puzzle):
-this solution inspired me to create my own solution in Rust.
+this solution inspired me to create my own solution in Rust;
+specifically, I started by responding to this
+[Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
 My solution is blazingly fast, solving the standard problem
 in about 25ms of wall clock time single-threaded on my Ryzen
