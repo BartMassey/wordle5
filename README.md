@@ -46,14 +46,36 @@ wack.
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
 
+## Word Lists
+
+* `words-nyt-wordle.txt` (12945 words): I've taken the
+  liberty of combining the NYT Wordle word lists into a
+  single file and filtering duplicates. It doesn't change
+  performance notably, and it's way more convenient.
+
+* `words-alpha.txt` (15913 words): I've filtered
+  `words_alpha.txt` (wherever that came from) to just
+  five-letter words and removed all consonant-only words
+  (all words contain at least one of *aeiouyw*).
+
+* `words-bart.txt` (17560 words): I've built my own wordlist
+  as the union of wordlists in
+  [my `wordlists` repo](https://github.com/BartMassey/wordlists),
+  filtered the same as `words-alpha.txt`.
+
 ## Usage
+
+Build the program with
+```
+cargo build --release
+```
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
 words, one per line. The standard invocation is
 
 ```
-cargo run --release wordle-nyt-*.txt
+cargo run --release words-nyt-wordle.txt
 ```
 
 ## License
