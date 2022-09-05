@@ -53,25 +53,32 @@ fn five_letter(word: &str) -> Option<(LetterSet, String)> {
 /// This list is returned as a `HashMap` from each word's
 /// `LetterSet` to its owned `String` representation.
 ///
-/// *Note:* For efficiency, a single arbitrary
-/// representative word is chosen to represent admissible
-/// words that are anagrams by default. The Cargo feature
-/// `anagrams` can be enabled to make the returned `String`
-/// represent all anagrams in this case.
+/// `LetterSets` representing sets of of anagrammatic words
+/// have a slash-separated `String` representation: for
+/// example `"pots/stop/tops/post"`.
 fn assemble_dicts() -> HashMap<LetterSet, String> {
     let dicts: Vec<String> = std::env::args().skip(1).collect();
-    let mut dict = HashMap::new();
+    let mut dict: HashMap<LetterSet, String> = HashMap::new();
 
+    // Process each specified dictionary in turn.
     for d in dicts {
-        let text = std::fs::read_to_string(d).unwrap();
-        let words = text
-            .trim()
-            .split('\n')
-            .filter_map(five_letter);
-        #[cfg(not(feature = "anagrams"))]
-        dict.extend(words);
-        #[cfg(feature = "anagrams")]
-        todo!();
+        // Read and filter the dictionary `d`.
+        let text = std::fs::read_to_string(&d).unwrap_or_else(|e| {
+            println!("Could not read dictionary {d}: {e}");
+            std::process::exit(1);
+        });
+        let words = text.trim().split('\n').filter_map(five_letter);
+
+        // Extend the working dictionary, taking anagrams
+        // into account.
+        for (w, s) in words {
+            dict.entry(w)
+                .and_modify(|v| {
+                    v.push('/');
+                    v.push_str(&s);
+                })
+                .or_insert(s);
+        }
     }
     dict
 }
@@ -123,8 +130,8 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
 
 #[test]
 fn test_make_letter_groups() {
-    let letter_ids = make_letter_groups(&[0b11111]);
-    for (c, v) in letter_ids {
+    let groups = make_letter_groups(&[0b11111]);
+    for (c, v) in groups {
         if c < 5 {
             assert_eq!(v, [0b11111]);
         } else {
@@ -140,7 +147,7 @@ type Solution = [LetterSet; 5];
 /// Horribly-named function for actually solving the
 /// *Wordle5* problem for a given dictionary. The general
 /// strategy is to ensure that exactly one word from the
-/// `LetterGroup` at `posn` in `letter_ids` is included in
+/// `LetterGroup` at `posn` in `groups` is included in
 /// the current solution as represented by `cur`, but with
 /// no shared letters in the `Solution`. Exactly one `skip`
 /// is allowed, in which a letter is not included in the
@@ -156,7 +163,7 @@ type Solution = [LetterSet; 5];
 /// turn. If a five-word `Solution` is discovered, it is
 /// added to the vec of `solns`.
 fn solvify(
-    letter_ids: &[LetterGroup],
+    groups: &[LetterGroup],
     cur: &mut Solution,
     solns: &mut Vec<Solution>,
     mut posn: usize,
@@ -180,7 +187,7 @@ fn solvify(
 
         // If we've found an unused letter, exit the loop
         // with `posn` set to point to that `LetterGroup`.
-        let c = letter_ids[posn].0;
+        let c = groups[posn].0;
         if seen & (1 << c) == 0 {
             break;
         }
@@ -191,28 +198,28 @@ fn solvify(
 
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
-    for &id in &letter_ids[posn].1 {
+    for &id in &groups[posn].1 {
         if seen & id != 0 {
             continue;
         }
         cur[count] = id;
-        solvify(letter_ids, cur, solns, posn + 1, count + 1, seen | id, skipped);
+        solvify(groups, cur, solns, posn + 1, count + 1, seen | id, skipped);
     }
 
     // If possible, try extending the current solution by
     // skipping the current `LetterGroup`. This can only
     // happen once for each solution.
     if !skipped {
-        solvify(letter_ids, cur, solns, posn + 1, count, seen, true);
+        solvify(groups, cur, solns, posn + 1, count, seen, true);
     }
 }
 
 /// Stub to cleanly invoke `solvify()` and return its
 /// solutions.
-fn solve(letter_ids: &[LetterGroup]) -> Vec<Solution> {
+fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
-    solvify(letter_ids, &mut partial, &mut solns, 0, 0, 0, false);
+    solvify(groups, &mut partial, &mut solns, 0, 0, 0, false);
     solns
 }
 
@@ -221,10 +228,10 @@ fn solve(letter_ids: &[LetterGroup]) -> Vec<Solution> {
 fn main() {
     let dict = assemble_dicts();
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
-    let letter_ids = make_letter_groups(&ids);
+    let groups = make_letter_groups(&ids);
 
     // Solve the problem and show any resulting solutions.
-    for soln in solve(&letter_ids).into_iter() {
+    for soln in solve(&groups).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }
