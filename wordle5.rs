@@ -31,37 +31,24 @@ fn assemble_dicts() -> HashMap<u32, String> {
     dict
 }
 
-
-fn letter_freqs(ids: &[u32]) -> [usize; 26] {
-    let mut counts = [0; 26];
-    for id in ids {
-        for (c, n) in counts.iter_mut().enumerate() {
-            if id & (1 << c) != 0 {
-                *n += 1;
-            }
-        }
-    }
-    counts
-}
-
 fn main() {
     let dict = assemble_dicts();
     let ids: Vec<u32> = dict.keys().copied().collect();
-    let freqs = letter_freqs(&ids);
 
     let mut letter_ids = Vec::new();
-    for (c, f) in freqs.iter().enumerate() {
+    for c in 0..26 {
         let cs: Vec<u32> = ids
             .iter()
             .filter(|&&id| id & (1 << c) != 0)
             .copied()
             .collect();
-        letter_ids.push((f, cs));
+        letter_ids.push((c, cs));
     }
+    letter_ids.sort_unstable_by_key(|(_, cs)| cs.len());
 
-    for (c, (f, ids)) in letter_ids.iter().enumerate() {
-        let ch = char::from_u32(c as u32 + 'a' as u32).unwrap();
-        println!("{} ({})", ch, f);
+    for (c, ids) in letter_ids.iter() {
+        let ch = char::from_u32(*c as u32 + 'a' as u32).unwrap();
+        println!("{}", ch);
         for id in ids {
             println!("    {}", dict[id]);
         }
