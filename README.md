@@ -14,16 +14,19 @@ specifically, I started by responding to this
 [Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
 My solution is blazingly fast, solving the standard problem
-in about 25ms of wall clock time single-threaded on my Ryzen
-9 3900X desktop. Flamegraph profiling shows that about
-two-thirds of the runtime is spent in the solver proper, so
-there's still some room for improvement, albeit with
-diminishing returns. Larger dictionaries would load the
-solver somewhat harder.
+in about 10ms of wall clock time on my 12-core Ryzen 9 3900X
+desktop using `rayon` parallelism. The solution time is
+about 25ms single-threaded; use `--no-default-features` in
+the build for this option.
 
-I've also tried to make my solution clear and
-readable. Please see the Rustdoc and source code for
-details.
+Flamegraph profiling shows that about two-thirds of the
+runtime is spent in the solver proper, so there's still some
+room for improvement, albeit with diminishing
+returns. Larger dictionaries would load the solver somewhat
+harder.
+
+I've tried to make my solution clear and readable. Please
+see the Rustdoc and source code for details.
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase

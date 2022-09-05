@@ -15,6 +15,9 @@
 
 use std::collections::HashMap;
 
+#[cfg(feature = "rayon")]
+use rayon::prelude::*;
+
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
 /// representing the presence or absence of 'a', bit 1 'b',
 /// and so forth up to bit 25 as 'z'.
@@ -238,13 +241,52 @@ fn solvify(
     }
 }
 
-/// Stub to cleanly invoke `solvify()` and return its
-/// solutions.
+/// Stub to cleanly sequentially invoke `solvify()` and
+/// return its solutions.
+#[cfg(not(feature = "rayon"))]
 fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
     solvify(groups, &mut partial, &mut solns, 0, 0, 0, false);
     solns
+}
+
+/// Stub to invoke `solvify()` using top-level parallelism
+/// via `rayon` and return its solutions.
+#[cfg(feature = "rayon")]
+fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+    // We will be parallelising over the first group.
+    let (_, ws) = &groups[0];
+
+    // Gross hack to handle the skip case at the base level
+    // in parallel with the other cases.
+    let mut ws = ws.clone();
+    ws.push(0);
+
+    // Run the parallel loop.
+    let solutions: Vec<Vec<Solution>> = ws
+        .as_slice()
+        .into_par_iter()
+        .map(|&w| {
+            let mut partial = [0; 5];
+            let mut solns = Vec::new();
+            if w != 0 {
+                partial[0] = w;
+                solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+            } else {
+                // Letter skip case.
+                solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+            }
+            solns
+        })
+        .collect();
+    
+    // Collect up the results.
+    let mut result = Vec::new();
+    for ss in solutions {
+        result.extend(ss);
+    }
+    result
 }
 
 /// Solve a Wordle5 problem using dictionaries specified on
