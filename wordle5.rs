@@ -31,10 +31,7 @@ fn assemble_dicts() -> HashMap<u32, String> {
     dict
 }
 
-fn main() {
-    let dict = assemble_dicts();
-    let ids: Vec<u32> = dict.keys().copied().collect();
-
+fn make_letter_ids(ids: &[u32]) -> Vec<(u32, Vec<u32>)> {
     let mut letter_ids = Vec::new();
     for c in 0..26 {
         let cs: Vec<u32> = ids
@@ -45,12 +42,22 @@ fn main() {
         letter_ids.push((c, cs));
     }
     letter_ids.sort_unstable_by_key(|(_, cs)| cs.len());
+    letter_ids
+}
 
-    for (c, ids) in letter_ids.iter() {
-        let ch = char::from_u32(*c as u32 + 'a' as u32).unwrap();
-        println!("{}", ch);
-        for id in ids {
-            println!("    {}", dict[id]);
+fn solve(letter_ids: &[(u32, Vec<u32>)]) -> impl Iterator<Item = [u32; 5]> {
+    todo!()
+}
+
+fn main() {
+    let dict = assemble_dicts();
+    let ids: Vec<u32> = dict.keys().copied().collect();
+    let letter_ids = make_letter_ids(&ids);
+
+    for soln in solve(&letter_ids) {
+        for id in soln {
+            print!("{} ", dict[&id]);
         }
+        println!();
     }
 }
