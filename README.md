@@ -11,9 +11,9 @@ Meier's
 this solution inspired me to create my own solution in Rust.
 
 My solution is blazingly fast, solving the standard problem
-in about 50ms of wall clock time single-threaded. I've also
-tried to make it clear and readable. Please see the Rustdoc
-for details.
+in about 25ms of wall clock time single-threaded on my Ryzen
+9 3900X desktop. I've also tried to make my solution clear
+and readable. Please see the Rustdoc for details.
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
