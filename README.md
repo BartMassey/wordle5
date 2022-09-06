@@ -43,6 +43,12 @@ is dramatically slower, taking about 20ms extra just to
 process the dictionaries. Rust I/O performance is a bit
 wack.
 
+The `main` branch uses a recursive solver. The branch
+`nonrecursive-solvify` in this repo makes the solver
+iterative using an explicit stack. It is not noticeably
+faster currently, but that appears to be a function of the
+already-rapid solver time.
+
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
 
