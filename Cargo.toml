@@ -9,3 +9,6 @@ rayon = "1.5.3"
 [[bin]]
 name = "wordle5"
 path = "wordle5.rs"
+
+[profile.release]
+panic = "abort"
