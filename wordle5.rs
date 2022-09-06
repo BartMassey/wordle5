@@ -15,9 +15,6 @@
 
 use std::collections::HashMap;
 
-#[cfg(feature = "rayon")]
-use rayon::prelude::*;
-
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
 /// representing the presence or absence of 'a', bit 1 'b',
 /// and so forth up to bit 25 as 'z'.
@@ -243,7 +240,7 @@ fn solvify(
 
 /// Stub to cleanly sequentially invoke `solvify()` and
 /// return its solutions.
-#[cfg(not(feature = "rayon"))]
+#[cfg(not(any(feature = "rayon", feature = "scoped-threads")))]
 fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
@@ -253,8 +250,10 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via `rayon` and return its solutions.
-#[cfg(feature = "rayon")]
+#[cfg(all(feature = "rayon", not(feature = "scoped-threads")))]
 fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+    use rayon::prelude::*;
+
     // We will be parallelising over the first group.
     let (_, ws) = &groups[0];
 
@@ -282,6 +281,56 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
             solns1.extend(solns2);
             solns1
         })
+}
+
+/// Stub to invoke `solvify()` using top-level parallelism
+/// via scoped threads and return its solutions.
+#[cfg(feature = "scoped-threads")]
+fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+    use std::thread::{scope, ScopedJoinHandle};
+
+    // We will be parallelising over the first group.
+    let (_, ws) = &groups[0];
+
+    // Gross hack to handle the skip case at the base level
+    // in parallel with the other cases.
+    let mut ws = ws.clone();
+    ws.push(0);
+
+    // Run the parallel loop.
+    scope(move |s| {
+        // XXX The collect() at the end here does not seem to me
+        // to be needless. I want to ensure that I spawn all the
+        // threads before I wait for any of them. Spawning
+        // a thread and then joining that thread sequentializes
+        // the computation, I think maybe?
+        #[allow(clippy::needless_collect)]
+        let handles: Vec<ScopedJoinHandle<Vec<Solution>>> = ws
+            .into_iter()
+            .map(move |w| {
+                s.spawn(move || {
+                    let mut partial = [0; 5];
+                    let mut solns = Vec::new();
+                    if w != 0 {
+                        partial[0] = w;
+                        solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+                    } else {
+                        // Letter skip case.
+                        solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+                    }
+                    solns
+                })
+            })
+            .collect();
+
+        handles
+            .into_iter()
+            .fold(Vec::new(), |mut solns, handle| {
+                let soln = handle.join().unwrap();
+                solns.extend(soln);
+                solns
+            })
+    })
 }
 
 /// Solve a Wordle5 problem using dictionaries specified on

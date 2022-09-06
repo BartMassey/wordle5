@@ -12,5 +12,6 @@ name = "wordle5"
 path = "wordle5.rs"
 
 [features]
-default = ["rayon"]
+default = ["scoped-threads"]
 rayon = ["dep:rayon"]
+scoped-threads = []
