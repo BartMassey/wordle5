@@ -189,51 +189,87 @@ fn solvify(
     groups: &[LetterGroup],
     cur: &mut Solution,
     solns: &mut Vec<Solution>,
-    mut posn: usize,
+    posn: usize,
     count: usize,
     seen: LetterSet,
     skipped: bool,
 ) {
-    // If five words have been found, that's a
-    // solution. Save it and end this function invocation.
-    if count == 5 {
-        solns.push(*cur);
-        return;
+    // Depth-first search is implemented explicitly as a stack of
+    // `State`s that comprise the current search environment.
+    struct State {
+        cur: Solution,
+        posn: usize,
+        count: usize,
+        seen: LetterSet,
+        skipped: bool,
     }
+    let mut stack = Vec::new();
 
-    // Search forward for the next unused letter.
-    loop {
-        // Ran off the end. End this function invocation.
-        if posn >= 26 {
-            return;
-        }
-
-        // If we've found an unused letter, exit the loop
-        // with `posn` set to point to that `LetterGroup`.
-        let c = groups[posn].0;
-        if seen & (1 << c) == 0 {
-            break;
-        }
-
-        // Try the next position.
-        posn += 1;
-    }
-
-    // Try extending the current solution using each word in
-    // the current `LetterGroup`.
-    for &id in &groups[posn].1 {
-        if seen & id != 0 {
+    // Run the depth-first search from the starting state.
+    let start = State {
+        cur: *cur,
+        posn,
+        count,
+        seen,
+        skipped,
+    };
+    stack.push(start);
+    'iter: while let Some(State { mut cur, mut posn, count, seen, skipped }) = stack.pop() {
+        // If five words have been found, that's a
+        // solution. Save it and end this round.
+        if count == 5 {
+            solns.push(cur);
             continue;
         }
-        cur[count] = id;
-        solvify(groups, cur, solns, posn + 1, count + 1, seen | id, skipped);
-    }
 
-    // If possible, try extending the current solution by
-    // skipping the current `LetterGroup`. This can only
-    // happen once for each solution.
-    if !skipped {
-        solvify(groups, cur, solns, posn + 1, count, seen, true);
+        // Search forward for the next unused letter.
+        loop {
+            // Ran off the end. End this round.
+            if posn >= 26 {
+                continue 'iter;
+            }
+
+            // If we've found an unused letter, exit the loop
+            // with `posn` set to point to that `LetterGroup`.
+            let c = groups[posn].0;
+            if seen & (1 << c) == 0 {
+                break;
+            }
+
+            // Try the next position.
+            posn += 1;
+        }
+
+        // Try extending the current solution using each word in
+        // the current `LetterGroup`.
+        for &word in &groups[posn].1 {
+            if seen & word != 0 {
+                continue;
+            }
+            cur[count] = word;
+            let next_state = State {
+                cur,
+                posn: posn + 1,
+                count: count + 1,
+                seen: seen | word,
+                skipped,
+            };
+            stack.push(next_state);
+        }
+
+        // If possible, try extending the current solution by
+        // skipping the current `LetterGroup`. This can only
+        // happen once for each solution.
+        if !skipped {
+            let next_state = State {
+                cur,
+                posn: posn + 1,
+                count,
+                seen,
+                skipped: true,
+            };
+            stack.push(next_state);
+        }
     }
 }
 
