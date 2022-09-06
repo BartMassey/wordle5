@@ -3,15 +3,9 @@ name = "wordle5"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies.rayon]
-version = "1.5.3"
-optional = true
+[dependencies]
+rayon = "1.5.3"
 
 [[bin]]
 name = "wordle5"
 path = "wordle5.rs"
-
-[features]
-default = ["scoped-threads"]
-rayon = ["dep:rayon"]
-scoped-threads = []

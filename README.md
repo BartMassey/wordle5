@@ -69,18 +69,6 @@ Build the program with
 ```
 cargo build --release
 ```
-This will get the `scoped-threads` multi-threaded solver,
-which is a good default. You can instead build with
-```
-cargo build --release --no-default-features --features=rayon
-```
-to get the `rayon` multi-threaded solver, which has similar
-performance. You can instead build with
-```
-cargo build --release --no-default-features
-```
-to get the sequential (single-threaded) solver. It's roughly
-twice as slow as the multi-threaded ones.
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
@@ -88,6 +76,24 @@ words, one per line. The standard invocation is
 
 ```
 cargo run --release words-nyt-wordle.txt
+```
+
+You can specify a solver to use with a command-line
+argument.
+
+* `--scoped-threads`: This will use the `scoped-threads` multi-threaded solver,
+  which is the default.
+
+* `--rayon`: This will use the `rayon` multi-threaded solver, which has similar
+  performance to `--scoped-threads`.
+
+* `--sequential`: This will get the sequential
+  (single-threaded) solver. It's roughly twice as slow as
+  the multi-threaded ones.
+
+So for example
+```
+cargo run --release -- --sequential words-nyt-wordle.txt
 ```
 
 ## License

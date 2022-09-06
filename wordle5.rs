@@ -67,14 +67,13 @@ fn five_letter(word: &str) -> Option<(LetterSet, String)> {
 /// `LetterSets` representing sets of of anagrammatic words
 /// have a slash-separated `String` representation: for
 /// example `"pots/stop/tops/post"`.
-fn assemble_dicts() -> HashMap<LetterSet, String> {
-    let dicts: Vec<String> = std::env::args().skip(1).collect();
+fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
     let mut dict: HashMap<LetterSet, String> = HashMap::new();
 
     // Process each specified dictionary in turn.
     for d in dicts {
         // Read and filter the dictionary `d`.
-        let text = std::fs::read_to_string(&d).unwrap_or_else(|e| {
+        let text = std::fs::read_to_string(d).unwrap_or_else(|e| {
             println!("Could not read dictionary {d}: {e}");
             std::process::exit(1);
         });
@@ -238,10 +237,12 @@ fn solvify(
     }
 }
 
+/// Type of solver functions.
+type Solver = fn(&[LetterGroup]) -> Vec<Solution>;
+
 /// Stub to cleanly sequentially invoke `solvify()` and
 /// return its solutions.
-#[cfg(not(any(feature = "rayon", feature = "scoped-threads")))]
-fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_sequential(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
     solvify(groups, &mut partial, &mut solns, 0, 0, 0, false);
@@ -250,8 +251,7 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via `rayon` and return its solutions.
-#[cfg(all(feature = "rayon", not(feature = "scoped-threads")))]
-fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     use rayon::prelude::*;
 
     // We will be parallelising over the first group.
@@ -285,8 +285,7 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via scoped threads and return its solutions.
-#[cfg(feature = "scoped-threads")]
-fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
     use std::thread::{scope, ScopedJoinHandle};
 
     // We will be parallelising over the first group.
@@ -336,12 +335,32 @@ fn solve(groups: &[LetterGroup]) -> Vec<Solution> {
 /// Solve a Wordle5 problem using dictionaries specified on
 /// the command line. Print each solution found.
 fn main() {
-    let dict = assemble_dicts();
+    // Process arguments.
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args.is_empty() {
+        return;
+    }
+    let mut solver: Solver = solve_scoped_threads;
+    if args[0].starts_with("--") {
+        match args[0].as_str() {
+            "--scoped-threads" => solver = solve_scoped_threads,
+            "--sequential" => solver = solve_sequential,
+            "--rayon" => solver = solve_rayon,
+            s => {
+                println!("{s}: unknown solver");
+                std::process::exit(1);
+            }
+        }
+        args.remove(0);
+    }
+
+    // Build supporting data.
+    let dict = assemble_dicts(&args);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
     let groups = make_letter_groups(&ids);
 
     // Solve the problem and show any resulting solutions.
-    for soln in solve(&groups).into_iter() {
+    for soln in solver(&groups).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }
