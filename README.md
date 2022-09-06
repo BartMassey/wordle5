@@ -18,9 +18,9 @@ specifically, I started by responding to this
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 12ms of wall clock time on my 12-core Ryzen 9 3900X
+in about 11ms of wall clock time on my 12-core Ryzen 9 3900X
 desktop using `rayon` parallelism. The solution time is
-about 17ms single-threaded.  The comment thread on this
+about 14ms single-threaded.  The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
 the source of fastest solutions right now: I'm about a
 factor of two faster than the best reported solution, and
@@ -51,8 +51,11 @@ already-rapid solver time.
 When building for best performance, you may want to build a
 statically-linked binary for more reproducible best times.
 On my box I use the `x86_64-unknown-linux-musl` build target
-for this. Note that you definitely want to time the binary:
-don't use `cargo run` when timing as it adds major overhead.
+for this. You may also want to use `RUSTC_FLAGS="-C
+target-cpu=native"`, although it doesn't make a difference
+for me except a tiny bit in sequential execution. Note that
+you definitely want to time the binary: don't use `cargo
+run` when timing as it adds major overhead.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.

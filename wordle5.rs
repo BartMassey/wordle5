@@ -322,13 +322,11 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
             })
             .collect();
 
-        handles
-            .into_iter()
-            .fold(Vec::new(), |mut solns, handle| {
-                let soln = handle.join().unwrap();
-                solns.extend(soln);
-                solns
-            })
+        handles.into_iter().fold(Vec::new(), |mut solns, handle| {
+            let soln = handle.join().unwrap();
+            solns.extend(soln);
+            solns
+        })
     })
 }
 
