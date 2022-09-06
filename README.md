@@ -20,12 +20,11 @@ specifically, I started by responding to this
 My solution is blazingly fast, solving the standard problem
 in about 12ms of wall clock time on my 12-core Ryzen 9 3900X
 desktop using `rayon` parallelism. The solution time is
-about 25ms single-threaded; use `--no-default-features` in
-the build for this option. The comment thread on this
+about 17ms single-threaded.  The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
 the source of fastest solutions right now: I'm about a
 factor of two faster than the best reported solution, and
-comparable when single-threaded.
+still faster when single-threaded.
 
 Flamegraph profiling shows that about two-thirds of the
 runtime of the single-threaded version is spent in the
@@ -48,6 +47,12 @@ The `main` branch uses a recursive solver. The branch
 iterative using an explicit stack. It is not noticeably
 faster currently, but that appears to be a function of the
 already-rapid solver time.
+
+When building for best performance, you may want to build a
+statically-linked binary for more reproducible best times.
+On my box I use the `x86_64-unknown-linux-musl` build target
+for this. Note that you definitely want to time the binary:
+don't use `cargo run` when timing as it adds major overhead.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
@@ -78,7 +83,7 @@ cargo build --release
 
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
-words, one per line. The standard invocation is
+words, one per line. The easy invocation is
 
 ```
 cargo run --release words-nyt-wordle.txt
@@ -94,8 +99,8 @@ argument.
   performance to `--scoped-threads`.
 
 * `--sequential`: This will get the sequential
-  (single-threaded) solver. It's roughly twice as slow as
-  the multi-threaded ones.
+  (single-threaded) solver. It's slower than the
+  multi-threaded ones.
 
 So for example
 ```
