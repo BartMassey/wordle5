@@ -18,17 +18,18 @@ specifically, I started by responding to this
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 11ms single-threaded on my Ryzen 9 3900X desktop.
+in about 14ms single-threaded on my Ryzen 9 3900X desktop.
+Using `rayon` parallelism, or custom scoped-thread
+parallelism the solution time is about 11ms.
 
-Using `rayon` parallelism, the solution time is
-about 11ms single-threaded.  The comment thread on this
+The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
 the source of fastest solutions right now: I'm about a
-factor of two faster than the best reported solution, and
-still faster when single-threaded.
+factor of two faster than the best reported solution.
 
-To "cheat" you can take advantage of expert knowledge about
-the existence of 
+To "cheat" you can take advantage of "expert" knowledge
+about the existence of vowels. Using the `--prune-vowels`
+flag takes the time to about 7ms for all solvers.
 
 Flamegraph profiling shows that about two-thirds of the
 runtime of the single-threaded version is spent in the
@@ -57,9 +58,18 @@ statically-linked binary for more reproducible best times.
 On my box I use the `x86_64-unknown-linux-musl` build target
 for this. You may also want to use `RUSTC_FLAGS="-C
 target-cpu=native"`, although it doesn't make a difference
-for me except a tiny bit in sequential execution. Note that
-you definitely want to time the binary: don't use `cargo
-run` when timing as it adds major overhead.
+for me. Note that you definitely want to time the binary:
+don't use `cargo run` when timing as it adds major overhead.
+
+To see node counts from the solver, build with the
+`instrument` feature. This will display node counts at each
+search tree depth as well as a total.
+
+At this point, the performance is really fragile; small
+tweaks make unexplained differences. I think it's unlikely
+that further tuning of the existing approach can make this
+code dramatically quicker: a whole new solver algorithm
+would be needed.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
@@ -113,6 +123,8 @@ So for example
 ```
 cargo run --release -- --sequential words-nyt-wordle.txt
 ```
+
+To turn on vowel pruning, add the `--prune-vowels` flag.
 
 To get node count instrumentation, compile with feature
 `instrument`, for example
