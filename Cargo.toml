@@ -20,4 +20,3 @@ panic = "abort"
 
 [features]
 instrument = ["once_cell"]
-prune_vowels = []
