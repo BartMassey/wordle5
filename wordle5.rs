@@ -17,8 +17,8 @@ use std::collections::HashMap;
 
 #[cfg(feature = "instrument")]
 mod instrument {
-    pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
     pub use once_cell::sync::Lazy;
+    pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
     pub static NODES: Lazy<[AtomicUsize; 6]> =
         Lazy::new(|| std::array::from_fn(|_| AtomicUsize::new(0)));
@@ -26,7 +26,10 @@ mod instrument {
 #[cfg(feature = "instrument")]
 use instrument::*;
 
-use std::sync::atomic::{AtomicBool, Ordering::{Release, Acquire}};
+use std::sync::atomic::{
+    AtomicBool,
+    Ordering::{Acquire, Release},
+};
 
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
 /// representing the presence or absence of 'a', bit 1 'b',
@@ -114,7 +117,9 @@ type LetterGroup = (Char, Vec<LetterSet>);
 /// `LetterSet` of vowels for pruning.
 const VOWELS: LetterSet = {
     macro_rules! b {
-        ($c:expr) => {(1 << ($c as u32 - 'a' as u32))};
+        ($c:expr) => {
+            (1 << ($c as u32 - 'a' as u32))
+        };
     }
     b!('a') | b!('e') | b!('i') | b!('o') | b!('u') | b!('y') | b!('w')
 };
@@ -315,7 +320,6 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     #[cfg(feature = "instrument")]
     NODES[0].store(1, SeqCst);
 
-
     // Run the parallel loop.
     ws.as_slice()
         .into_par_iter()
@@ -457,7 +461,8 @@ fn main() {
         println!();
     }
 
-    #[cfg(feature = "instrument")] {
+    #[cfg(feature = "instrument")]
+    {
         let total: usize = NODES.iter().map(|c| c.load(SeqCst)).sum();
         println!("nodes: {total}");
         for (depth, count) in NODES.iter().enumerate() {
