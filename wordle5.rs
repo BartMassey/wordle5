@@ -15,6 +15,17 @@
 
 use std::collections::HashMap;
 
+#[cfg(feature = "instrument")]
+mod instrument {
+    pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    pub use once_cell::sync::Lazy;
+
+    pub static NODES: Lazy<[AtomicUsize; 6]> =
+        Lazy::new(|| std::array::from_fn(|_| AtomicUsize::new(0)));
+}
+#[cfg(feature = "instrument")]
+use instrument::*;
+
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
 /// representing the presence or absence of 'a', bit 1 'b',
 /// and so forth up to bit 25 as 'z'.
@@ -202,6 +213,9 @@ fn solvify(
     seen: LetterSet,
     skipped: bool,
 ) {
+    #[cfg(feature = "instrument")]
+    NODES[count].fetch_add(1, SeqCst);
+
     // If five words have been found, that's a
     // solution. Save it and end this function invocation.
     if count == 5 {
@@ -269,6 +283,8 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     // in parallel with the other cases.
     let mut ws = ws.clone();
     ws.push(0);
+    #[cfg(feature = "instrument")]
+    NODES[0].store(1, SeqCst);
 
     // Run the parallel loop.
     ws.as_slice()
@@ -303,6 +319,8 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
     // in parallel with the other cases.
     let mut ws = ws.clone();
     ws.push(0);
+    #[cfg(feature = "instrument")]
+    NODES[0].store(1, SeqCst);
 
     // Run the parallel loop.
     scope(move |s| {
@@ -371,5 +389,13 @@ fn main() {
             print!("{} ", dict[&id]);
         }
         println!();
+    }
+
+    #[cfg(feature = "instrument")] {
+        let total: usize = NODES.iter().map(|c| c.load(SeqCst)).sum();
+        println!("nodes: {total}");
+        for (depth, count) in NODES.iter().enumerate() {
+            println!("    {depth}: {}", count.load(SeqCst));
+        }
     }
 }

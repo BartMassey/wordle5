@@ -6,9 +6,16 @@ edition = "2021"
 [dependencies]
 rayon = "1.5.3"
 
+[dependencies.once_cell]
+version = "1.14.0"
+optional = true
+
 [[bin]]
 name = "wordle5"
 path = "wordle5.rs"
 
 [profile.release]
 panic = "abort"
+
+[features]
+instrument = ["once_cell"]

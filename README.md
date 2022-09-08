@@ -110,6 +110,12 @@ So for example
 cargo run --release -- --sequential words-nyt-wordle.txt
 ```
 
+To get node count instrumentation, compile with feature
+`instrument`, for example
+```
+cargo run --release --features=instrument -- --sequential words-nyt-wordle.txt
+```
+
 ## License
 
 This work is made available under the "MIT License."  Please
