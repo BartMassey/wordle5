@@ -109,6 +109,14 @@ fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
 /// `LetterSet`s for the words.
 type LetterGroup = (Char, Vec<LetterSet>);
 
+/// XXX `LetterSet` of vowels for hacky pruning.
+const VOWELS: LetterSet = {
+    macro_rules! b {
+        ($c:expr) => {(1 << ($c as u32 - 'a' as u32))};
+    }
+    b!('a') | b!('e') | b!('i') | b!('o') | b!('u') | b!('y') | b!('w')
+};
+
 /// Given a list of `LetterSet`s representing all the words
 /// in the dictionary, return a list of `LetterGroup`s.
 /// Each `LetterGroup` represents a list of all words from
@@ -164,17 +172,11 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
         seen |= 1 << *c;
     }
 
-    // XXX Filter for legal vowel usage. This is just a hack
-    // to see if it works.
-    let vowels = ['a', 'e', 'i', 'o', 'u', 'y', 'w'];
-    let vowels: LetterSet = vowels
-        .into_iter()
-        .fold(0, |vs, v| vs | (1 << (v as u32 - 'a' as u32)));
+    // XXX Filter for legal vowel usage. This is a hack.
     for (c, words) in &mut groups {
-        words.retain(|w| (vowels & w).count_ones() <= 2);
+        words.retain(|w| (VOWELS & w).count_ones() <= 2);
         seen |= 1 << *c;
     }
-    
 
     groups
 }
@@ -256,7 +258,13 @@ fn solvify(
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
     for &id in &groups[posn].1 {
+        // Check for letter re-use.
         if seen & id != 0 {
+            continue;
+        }
+        // XXX Check for vowel over-use. This is a hack.
+        let vowels_used = ((seen | id) & VOWELS).count_ones() as usize;
+        if 7 - vowels_used < 4 - count {
             continue;
         }
         cur[count] = id;
@@ -290,13 +298,13 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
 
     // We will be parallelising over the first group.
     let (_, ws) = &groups[0];
-
     // Gross hack to handle the skip case at the base level
     // in parallel with the other cases.
     let mut ws = ws.clone();
     ws.push(0);
     #[cfg(feature = "instrument")]
     NODES[0].store(1, SeqCst);
+
 
     // Run the parallel loop.
     ws.as_slice()
