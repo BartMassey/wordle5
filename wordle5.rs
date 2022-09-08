@@ -15,6 +15,8 @@
 
 use std::collections::HashMap;
 
+use argwerk::define as argwerk_define;
+
 #[cfg(feature = "instrument")]
 mod instrument {
     pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
@@ -220,6 +222,7 @@ type Solution = [LetterSet; 5];
 /// trying to include each word in its `LetterGroup` in
 /// turn. If a five-word `Solution` is discovered, it is
 /// added to the vec of `solns`.
+#[allow(clippy::too_many_arguments)]
 fn solvify(
     groups: &[LetterGroup],
     cur: &mut Solution,
@@ -385,32 +388,52 @@ fn solve_scoped_threads(groups: &[LetterGroup], prune_vowels: bool) -> Vec<Solut
 /// the command line. Print each solution found.
 fn main() {
     // Process arguments.
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-    if args.is_empty() {
-        return;
-    }
+    argwerk_define! {
+        #[derive(Default)]
+        #[usage = "wordle5"]
+        struct Args {
+            solver: Option<String>,
+            prune_vowels: bool,
+            dicts: Vec<String>,
+        }
+
+        ["--solver", s] => {
+            solver = Some(s);
+        }
+
+        ["--prune-vowels"] => {
+            prune_vowels = true;
+        }
+
+        [#[rest] rest] => {
+            dicts = rest;
+        }
+    };
+    let args = Args::args().unwrap_or_else(|e| {
+        eprintln!("invalid arguments: {e}");
+        std::process::exit(1);
+    });
+
     let mut solver: Solver = solve_scoped_threads;
-    if args[0].starts_with("--") {
-        match args[0].as_str() {
-            "--scoped-threads" => solver = solve_scoped_threads,
-            "--sequential" => solver = solve_sequential,
-            "--rayon" => solver = solve_rayon,
+    if let Some(target) = args.solver {
+        match &*target {
+            "scoped-threads" => solver = solve_scoped_threads,
+            "sequential" => solver = solve_sequential,
+            "rayon" => solver = solve_rayon,
             s => {
                 println!("{s}: unknown solver");
                 std::process::exit(1);
             }
         }
-        args.remove(0);
     }
-    let prune_vowels = true;
 
     // Build supporting data.
-    let dict = assemble_dicts(&args);
+    let dict = assemble_dicts(&args.dicts);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
-    let groups = make_letter_groups(&ids, prune_vowels);
+    let groups = make_letter_groups(&ids, args.prune_vowels);
 
     // Solve the problem and show any resulting solutions.
-    for soln in solver(&groups, prune_vowels).into_iter() {
+    for soln in solver(&groups, args.prune_vowels).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }

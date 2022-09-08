@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rayon = "1.5.3"
+argwerk = "0.20.1"
 
 [dependencies.once_cell]
 version = "1.14.0"
