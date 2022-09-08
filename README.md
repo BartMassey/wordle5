@@ -18,13 +18,17 @@ specifically, I started by responding to this
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 11ms of wall clock time on my 12-core Ryzen 9 3900X
-desktop using `rayon` parallelism. The solution time is
-about 14ms single-threaded.  The comment thread on this
+in about 11ms single-threaded on my Ryzen 9 3900X desktop.
+
+Using `rayon` parallelism, the solution time is
+about 11ms single-threaded.  The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
 the source of fastest solutions right now: I'm about a
 factor of two faster than the best reported solution, and
 still faster when single-threaded.
+
+To "cheat" you can take advantage of expert knowledge about
+the existence of 
 
 Flamegraph profiling shows that about two-thirds of the
 runtime of the single-threaded version is spent in the

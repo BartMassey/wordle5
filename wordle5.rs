@@ -15,8 +15,6 @@
 
 use std::collections::HashMap;
 
-use argwerk::define as argwerk_define;
-
 #[cfg(feature = "instrument")]
 mod instrument {
     pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
@@ -384,37 +382,50 @@ fn solve_scoped_threads(groups: &[LetterGroup], prune_vowels: bool) -> Vec<Solut
     })
 }
 
+/// Arguments.
+#[derive(Default)]
+struct WArgs {
+    solver: Option<String>,
+    prune_vowels: bool,
+    dicts: Vec<String>,
+}
+
+/// Process arguments. Using a crate is too expensive.
+/// XXX String errors are gross but convenient.
+fn parse_args() -> Result<WArgs, String> {
+    let mut result: WArgs = WArgs::default();
+    let mut args = std::env::args();
+    let _ = args.next().unwrap();
+    while let Some(arg) = args.next() {
+        match &*arg {
+            "--prune-vowels" => result.prune_vowels = true,
+            "--solver" => {
+                if let Some(solver) = args.next() {
+                    result.solver = Some(solver);
+                } else {
+                    return Err("missing solver".to_string());
+                }
+            }
+            _ => {
+                let mut dicts = vec![arg];
+                dicts.extend(args.collect::<Vec<String>>());
+                result.dicts = dicts;
+                return Ok(result);
+            }
+        }
+    }
+    Err("missing dicts".to_string())
+}
+
 /// Solve a Wordle5 problem using dictionaries specified on
 /// the command line. Print each solution found.
 fn main() {
     // Process arguments.
-    argwerk_define! {
-        #[derive(Default)]
-        #[usage = "wordle5"]
-        struct Args {
-            solver: Option<String>,
-            prune_vowels: bool,
-            dicts: Vec<String>,
-        }
-
-        ["--solver", s] => {
-            solver = Some(s);
-        }
-
-        ["--prune-vowels"] => {
-            prune_vowels = true;
-        }
-
-        [#[rest] rest] => {
-            dicts = rest;
-        }
-    };
-    let args = Args::args().unwrap_or_else(|e| {
+    let args = parse_args().unwrap_or_else(|e| {
         eprintln!("invalid arguments: {e}");
         std::process::exit(1);
     });
-
-    let mut solver: Solver = solve_scoped_threads;
+    let mut solver: Solver = solve_sequential;
     if let Some(target) = args.solver {
         match &*target {
             "scoped-threads" => solver = solve_scoped_threads,
@@ -427,13 +438,15 @@ fn main() {
         }
     }
 
+    let prune_vowels = args.prune_vowels;
+
     // Build supporting data.
     let dict = assemble_dicts(&args.dicts);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
-    let groups = make_letter_groups(&ids, args.prune_vowels);
+    let groups = make_letter_groups(&ids, prune_vowels);
 
     // Solve the problem and show any resulting solutions.
-    for soln in solver(&groups, args.prune_vowels).into_iter() {
+    for soln in solver(&groups, prune_vowels).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }
