@@ -109,7 +109,7 @@ fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
 /// `LetterSet`s for the words.
 type LetterGroup = (Char, Vec<LetterSet>);
 
-/// XXX `LetterSet` of vowels for hacky pruning.
+/// `LetterSet` of vowels for pruning.
 const VOWELS: LetterSet = {
     macro_rules! b {
         ($c:expr) => {(1 << ($c as u32 - 'a' as u32))};
@@ -146,7 +146,7 @@ const VOWELS: LetterSet = {
 /// word list is prunedto contain only words containing zero
 /// or one letters indexing any previous group.  This
 /// pruning allows faster search.
-fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
+fn make_letter_groups(ids: &[LetterSet], filter_vowels: bool) -> Vec<LetterGroup> {
     // Make the letter groups.
     let mut groups = Vec::new();
     for c in 0..26 {
@@ -172,10 +172,12 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
         seen |= 1 << *c;
     }
 
-    // XXX Filter for legal vowel usage. This is a hack.
-    for (c, words) in &mut groups {
-        words.retain(|w| (VOWELS & w).count_ones() <= 2);
-        seen |= 1 << *c;
+    // Filter for legal vowel usage.
+    if filter_vowels {
+        for (c, words) in &mut groups {
+            words.retain(|w| (VOWELS & w).count_ones() <= 2);
+            seen |= 1 << *c;
+        }
     }
 
     groups
@@ -226,6 +228,7 @@ fn solvify(
     count: usize,
     seen: LetterSet,
     skipped: bool,
+    prune_vowels: bool,
 ) {
     #[cfg(feature = "instrument")]
     NODES[count].fetch_add(1, SeqCst);
@@ -262,38 +265,40 @@ fn solvify(
         if seen & id != 0 {
             continue;
         }
-        // XXX Check for vowel over-use. This is a hack.
-        let vowels_used = ((seen | id) & VOWELS).count_ones() as usize;
-        if 7 - vowels_used < 4 - count {
-            continue;
+        // Check for vowel over-use.
+        if prune_vowels {
+            let vowels_used = ((seen | id) & VOWELS).count_ones() as usize;
+            if 7 - vowels_used < 4 - count {
+                continue;
+            }
         }
         cur[count] = id;
-        solvify(groups, cur, solns, posn + 1, count + 1, seen | id, skipped);
+        solvify(groups, cur, solns, posn + 1, count + 1, seen | id, skipped, prune_vowels);
     }
 
     // If possible, try extending the current solution by
     // skipping the current `LetterGroup`. This can only
     // happen once for each solution.
     if !skipped {
-        solvify(groups, cur, solns, posn + 1, count, seen, true);
+        solvify(groups, cur, solns, posn + 1, count, seen, true, prune_vowels);
     }
 }
 
 /// Type of solver functions.
-type Solver = fn(&[LetterGroup]) -> Vec<Solution>;
+type Solver = fn(&[LetterGroup], bool) -> Vec<Solution>;
 
 /// Stub to cleanly sequentially invoke `solvify()` and
 /// return its solutions.
-fn solve_sequential(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_sequential(groups: &[LetterGroup], prune_vowels: bool) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
-    solvify(groups, &mut partial, &mut solns, 0, 0, 0, false);
+    solvify(groups, &mut partial, &mut solns, 0, 0, 0, false, prune_vowels);
     solns
 }
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via `rayon` and return its solutions.
-fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_rayon(groups: &[LetterGroup], prune_vowels: bool) -> Vec<Solution> {
     use rayon::prelude::*;
 
     // We will be parallelising over the first group.
@@ -314,10 +319,10 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
             let mut solns = Vec::new();
             if w != 0 {
                 partial[0] = w;
-                solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+                solvify(groups, &mut partial, &mut solns, 1, 1, w, false, prune_vowels);
             } else {
                 // Letter skip case.
-                solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+                solvify(groups, &mut partial, &mut solns, 1, 0, 0, true, prune_vowels);
             }
             solns
         })
@@ -329,7 +334,7 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via scoped threads and return its solutions.
-fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_scoped_threads(groups: &[LetterGroup], prune_vowels: bool) -> Vec<Solution> {
     use std::thread::{scope, ScopedJoinHandle};
 
     // We will be parallelising over the first group.
@@ -358,10 +363,10 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
                     let mut solns = Vec::new();
                     if w != 0 {
                         partial[0] = w;
-                        solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+                        solvify(groups, &mut partial, &mut solns, 1, 1, w, false, prune_vowels);
                     } else {
                         // Letter skip case.
-                        solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+                        solvify(groups, &mut partial, &mut solns, 1, 0, 0, true, prune_vowels);
                     }
                     solns
                 })
@@ -397,14 +402,15 @@ fn main() {
         }
         args.remove(0);
     }
+    let prune_vowels = true;
 
     // Build supporting data.
     let dict = assemble_dicts(&args);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
-    let groups = make_letter_groups(&ids);
+    let groups = make_letter_groups(&ids, prune_vowels);
 
     // Solve the problem and show any resulting solutions.
-    for soln in solver(&groups).into_iter() {
+    for soln in solver(&groups, prune_vowels).into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }
