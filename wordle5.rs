@@ -164,6 +164,18 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
         seen |= 1 << *c;
     }
 
+    // XXX Filter for legal vowel usage. This is just a hack
+    // to see if it works.
+    let vowels = ['a', 'e', 'i', 'o', 'u', 'y', 'w'];
+    let vowels: LetterSet = vowels
+        .into_iter()
+        .fold(0, |vs, v| vs | (1 << (v as u32 - 'a' as u32)));
+    for (c, words) in &mut groups {
+        words.retain(|w| (vowels & w).count_ones() <= 2);
+        seen |= 1 << *c;
+    }
+    
+
     groups
 }
 
