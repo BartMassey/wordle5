@@ -122,6 +122,11 @@ type LetterGroup = (Char, Vec<LetterSet>);
 /// ('i', ["fishy", "strip"])
 /// ('s', ["fishy", "strip"])
 /// ```
+///
+/// This isn't entirely accurate, though. Each `LetterGroup`
+/// word list is prunedto contain only words containing zero
+/// or one letters indexing any previous group.  This
+/// pruning allows faster search.
 fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
     // Make the letter groups.
     let mut groups = Vec::new();
@@ -153,13 +158,16 @@ fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
 
 #[test]
 fn test_make_letter_groups() {
-    let groups = make_letter_groups(&[0b11111]);
-    for (c, v) in groups {
-        if c < 5 {
-            assert_eq!(v, [0b11111]);
-        } else {
-            assert!(v.is_empty());
-        }
+    let w = 0b11111;
+    let groups = make_letter_groups(&[w]);
+    assert_eq!(groups.len(), 26);
+    for g in &groups[..21] {
+        assert_eq!(g.1, vec![]);
+    }
+    assert_eq!(groups[21].1, vec![w]);
+    assert_eq!(groups[22].1, vec![w]);
+    for g in &groups[23..] {
+        assert_eq!(g.1, vec![]);
     }
 }
 
