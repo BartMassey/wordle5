@@ -112,11 +112,6 @@ fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
     dict
 }
 
-/// Type of all words that contain a given `Char`,
-/// represented as the `Char` tag together with a `Vec` of
-/// `LetterSet`s for the words.
-type LetterGroup = (Char, Vec<LetterSet>);
-
 /// `LetterSet` of vowels for pruning.
 const VOWELS: LetterSet = {
     macro_rules! b {
@@ -126,6 +121,14 @@ const VOWELS: LetterSet = {
     }
     b!('a') | b!('e') | b!('i') | b!('o') | b!('u') | b!('y') | b!('w')
 };
+
+/// Type of all words that contain a given `Char`,
+/// represented as the `Char` tag together with a `Vec` of
+/// `LetterSet`s for the words.
+struct LetterGroup {
+    letter: Char,
+    words: Vec<LetterSet>,
+}
 
 /// Given a list of `LetterSet`s representing all the words
 /// in the dictionary, return a list of `LetterGroup`s.
@@ -153,40 +156,40 @@ const VOWELS: LetterSet = {
 /// ```
 ///
 /// This isn't entirely accurate, though. Each `LetterGroup`
-/// word list is prunedto contain only words containing zero
+/// word list is pruned to contain only words containing zero
 /// or one letters indexing any previous group.  This
 /// pruning allows faster search.
-fn make_letter_groups(ids: &[LetterSet]) -> Vec<LetterGroup> {
+fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
     // Make the letter groups.
     let mut groups = Vec::new();
-    for c in 0..26 {
+    for letter in 0..26 {
         // Save a letter group for each letter `c`.
-        let cs: Vec<LetterSet> = ids
+        let words: Vec<LetterSet> = words
             .iter()
-            .filter(|&&id| id & (1 << c) != 0)
+            .filter(|&&word| word & (1 << letter) != 0)
             .copied()
             .collect();
-        groups.push((c, cs));
+        groups.push(LetterGroup { letter, words });
     }
 
     // Sort the letter groups by increasing length of word list.
-    groups.sort_unstable_by_key(|(_, cs)| cs.len());
+    groups.sort_unstable_by_key(|LetterGroup{ words, .. }| words.len());
 
     // Filter each letter group using the idea that only
     // words that contain at most one of the previously-used
     // letters can be used, independent of the solution
     // shape so far.
     let mut seen: LetterSet = 0;
-    for (c, words) in &mut groups {
-        words.retain(|w| (w & seen).count_ones() < 2);
-        seen |= 1 << *c;
+    for g in &mut groups {
+        g.words.retain(|w| (w & seen).count_ones() < 2);
+        seen |= 1 << g.letter;
     }
 
     // Filter for legal vowel usage.
     if PRUNE_VOWELS.load(Acquire) {
-        for (c, words) in &mut groups {
-            words.retain(|w| (VOWELS & w).count_ones() <= 2);
-            seen |= 1 << *c;
+        for g in &mut groups {
+            g.words.retain(|w| (VOWELS & w).count_ones() <= 2);
+            seen |= 1 << g.letter;
         }
     }
 
@@ -199,12 +202,12 @@ fn test_make_letter_groups() {
     let groups = make_letter_groups(&[w]);
     assert_eq!(groups.len(), 26);
     for g in &groups[..21] {
-        assert_eq!(g.1, vec![]);
+        assert_eq!(g.words, vec![]);
     }
-    assert_eq!(groups[21].1, vec![w]);
-    assert_eq!(groups[22].1, vec![w]);
+    assert_eq!(groups[21].words, vec![w]);
+    assert_eq!(groups[22].words, vec![w]);
     for g in &groups[23..] {
-        assert_eq!(g.1, vec![]);
+        assert_eq!(g.words, vec![]);
     }
 }
 
@@ -261,7 +264,7 @@ fn solvify(
 
         // If we've found an unused letter, exit the loop
         // with `posn` set to point to that `LetterGroup`.
-        let c = groups[posn].0;
+        let c = groups[posn].letter;
         if seen & (1 << c) == 0 {
             break;
         }
@@ -273,20 +276,20 @@ fn solvify(
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
     let prune_vowels = PRUNE_VOWELS.load(Acquire);
-    for &id in &groups[posn].1 {
+    for &word in &groups[posn].words {
         // Check for letter re-use.
-        if seen & id != 0 {
+        if seen & word != 0 {
             continue;
         }
         // Check for vowel over-use.
         if prune_vowels {
-            let vowels_used = ((seen | id) & VOWELS).count_ones() as usize;
+            let vowels_used = ((seen | word) & VOWELS).count_ones() as usize;
             if 7 - vowels_used < 4 - count {
                 continue;
             }
         }
-        cur[count] = id;
-        solvify(groups, cur, solns, posn + 1, count + 1, seen | id, skipped);
+        cur[count] = word;
+        solvify(groups, cur, solns, posn + 1, count + 1, seen | word, skipped);
     }
 
     // If possible, try extending the current solution by
@@ -315,10 +318,10 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     use rayon::prelude::*;
 
     // We will be parallelising over the first group.
-    let (_, ws) = &groups[0];
+    let g = &groups[0];
     // Gross hack to handle the skip case at the base level
     // in parallel with the other cases.
-    let mut ws = ws.clone();
+    let mut ws = g.words.clone();
     ws.push(0);
     #[cfg(feature = "instrument")]
     NODES[0].store(1, SeqCst);
@@ -350,11 +353,10 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
     use std::thread::{scope, ScopedJoinHandle};
 
     // We will be parallelising over the first group.
-    let (_, ws) = &groups[0];
-
+    let g = &groups[0];
     // Gross hack to handle the skip case at the base level
     // in parallel with the other cases.
-    let mut ws = ws.clone();
+    let mut ws = g.words.clone();
     ws.push(0);
     #[cfg(feature = "instrument")]
     NODES[0].store(1, SeqCst);
