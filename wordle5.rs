@@ -13,7 +13,86 @@
 //! to a new letter. (All-but-one because you may have
 //! skipped one because 25 of 26 letters will be used.)
 
-use std::collections::HashMap;
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), feature(default_alloc_error_handler))]
+#![cfg_attr(not(feature = "std"), feature(allocator_api))]
+#![cfg_attr(not(feature = "std"), feature(start))]
+
+#[cfg(feature = "std")]
+mod std_stuff {
+    pub use std::collections::HashMap as Map;
+
+    pub fn stop() -> ! {
+        std::process::exit(1);
+    }
+
+    pub fn read_file(name: &str) -> String {
+        std::fs::read_to_string(name).unwrap_or_else(|e| {
+            println!("Could not read dictionary {name}: {e}");
+            stop();
+        })
+    }
+
+}
+#[cfg(not(feature = "std"))]
+mod std_stuff {
+    extern crate alloc;
+    pub use alloc::collections::btree_map::BTreeMap as Map;
+    pub use alloc::vec;
+    pub use alloc::string::String;
+    pub use alloc::vec::Vec;
+
+    pub use libc_print::std_name::{print, println, eprintln, dbg};
+
+    pub use libc_alloc::LibcAlloc;
+    #[global_allocator]
+    static ALLOCATOR: LibcAlloc = LibcAlloc;
+
+    fn abort() -> ! {
+        unsafe { libc::abort() };
+    }
+
+    pub fn stop() -> ! {
+        abort();
+    }
+
+    pub fn read_file(name: &str) -> String {
+        use core::ffi::CStr;
+        use alloc::ffi::CString;
+
+        const BUFSIZ: usize = 100 * 1024;
+        unsafe {
+            let name_bytes: Vec<u8> = name.bytes().collect();
+            let cname: CString = CString::from_vec_unchecked(name_bytes);
+            let fd = libc::open(cname.as_ptr(), libc::O_RDONLY);
+            if fd == -1 {
+                println!("{name}: cannot open");
+                stop();
+            }
+            let mut buf = [0u8; BUFSIZ];
+            let bufptr = buf.as_mut_ptr().cast::<core::ffi::c_void>();
+            let count = libc::read(fd, bufptr, BUFSIZ);
+            if count == -1 {
+                println!("{name}: cannot read");
+                stop();
+            }
+            if count == BUFSIZ as isize {
+                println!("{name}: too large");
+                stop();
+            }
+            let cstr: &CStr = CStr::from_bytes_with_nul_unchecked(&buf[..count as usize + 1]);
+            let rstring: String = cstr.to_str().unwrap().into();
+            rstring
+        }
+    }
+
+    #[panic_handler]
+    fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
+        abort();
+    }
+}
+
+use std_stuff::*;
 
 #[cfg(feature = "instrument")]
 mod instrument {
@@ -29,7 +108,7 @@ use instrument::*;
 #[cfg(feature = "timing")]
 use howlong::HighResolutionTimer;
 
-use std::sync::atomic::{
+use core::sync::atomic::{
     AtomicBool,
     Ordering::{Acquire, Release},
 };
@@ -53,7 +132,7 @@ fn five_letter(word: &str) -> Option<(LetterSet, String)> {
     // remove them.
     if word.chars().any(|c| !c.is_ascii_lowercase()) {
         println!("weird word {word} in dict");
-        std::process::exit(1);
+        stop();
     }
 
     // Filter for words with exactly five letters.
@@ -73,29 +152,26 @@ fn five_letter(word: &str) -> Option<(LetterSet, String)> {
     }
 
     // Found a valid word.
-    Some((letters, word.to_owned()))
+    Some((letters, word.into()))
 }
 
 /// Get the list of dictionaries to use from the command
 /// line, and combine their contents to produce a list of
 /// five-letter words, each containing five unique letters,
 /// and collectively containing only unique `LetterSet`s.
-/// This list is returned as a `HashMap` from each word's
+/// This list is returned as a map from each word's
 /// `LetterSet` to its owned `String` representation.
 ///
 /// `LetterSets` representing sets of of anagrammatic words
 /// have a slash-separated `String` representation: for
 /// example `"pots/stop/tops/post"`.
-fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
-    let mut dict: HashMap<LetterSet, String> = HashMap::new();
+fn assemble_dicts(dicts: &[String]) -> Map<LetterSet, String> {
+    let mut dict: Map<LetterSet, String> = Map::new();
 
     // Process each specified dictionary in turn.
     for d in dicts {
         // Read and filter the dictionary `d`.
-        let text = std::fs::read_to_string(d).unwrap_or_else(|e| {
-            println!("Could not read dictionary {d}: {e}");
-            std::process::exit(1);
-        });
+        let text = read_file(d);
         let words = text.trim().split('\n').filter_map(five_letter);
 
         // Extend the working dictionary, taking anagrams
@@ -311,6 +387,7 @@ fn solve_sequential(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via `rayon` and return its solutions.
+#[cfg(feature = "std")]
 fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     use rayon::prelude::*;
 
@@ -346,6 +423,7 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via scoped threads and return its solutions.
+#[cfg(feature = "std")]
 fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
     use std::thread::{scope, ScopedJoinHandle};
 
@@ -395,7 +473,7 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Arguments.
 #[derive(Default)]
-struct WArgs {
+pub struct WArgs {
     solver: Option<String>,
     prune_vowels: bool,
     dicts: Vec<String>,
@@ -403,9 +481,9 @@ struct WArgs {
 
 /// Process arguments. Using a crate is too expensive.
 /// XXX String errors are gross but convenient.
-fn parse_args() -> Result<WArgs, String> {
+pub fn parse_args(argv: Vec<String>) -> Result<WArgs, String> {
     let mut result: WArgs = WArgs::default();
-    let mut args = std::env::args();
+    let mut args = argv.into_iter();
     let _ = args.next().unwrap();
     while let Some(arg) = args.next() {
         match &*arg {
@@ -414,7 +492,7 @@ fn parse_args() -> Result<WArgs, String> {
                 if let Some(solver) = args.next() {
                     result.solver = Some(solver);
                 } else {
-                    return Err("missing solver".to_string());
+                    return Err("missing solver".into());
                 }
             }
             _ => {
@@ -425,26 +503,28 @@ fn parse_args() -> Result<WArgs, String> {
             }
         }
     }
-    Err("missing dicts".to_string())
+    Err("missing dicts".into())
 }
 
 /// Solve a Wordle5 problem using dictionaries specified on
 /// the command line. Print each solution found.
-fn main() {
+fn wordle5(argv: Vec<String>) {
     // Process arguments.
-    let args = parse_args().unwrap_or_else(|e| {
+    let args = parse_args(argv).unwrap_or_else(|e| {
         eprintln!("invalid arguments: {e}");
-        std::process::exit(1);
+        stop();
     });
     let mut solver: Solver = solve_sequential;
     if let Some(target) = args.solver {
         match &*target {
-            "scoped-threads" => solver = solve_scoped_threads,
             "sequential" => solver = solve_sequential,
-            "rayon" => solver = solve_rayon,
+            #[cfg(feature = "std")]
+            "scoped-threads" => solver = solve_scoped_threads,
+            #[cfg(feature = "std")]
+            "rayon" if cfg!(feature = "std") => solver = solve_rayon,
             s => {
                 println!("{s}: unknown solver");
-                std::process::exit(1);
+                stop();
             }
         }
     }
@@ -486,4 +566,30 @@ fn main() {
             println!("    {depth}: {}", count.load(SeqCst));
         }
     }
+}
+
+
+#[cfg(not(feature = "std"))]
+#[cfg_attr(not(feature = "std"), start)]
+fn start(argc: isize, argp: *const *const u8) -> isize {
+    let mut argv = Vec::new();
+    for i in 0..argc {
+        unsafe {
+            use core::ffi::{CStr, c_char};
+
+            let bytes: *const u8 = *argp.offset(i);
+            let cstr: &CStr = CStr::from_ptr(bytes as *const c_char);
+            let rstring: String = cstr.to_str().unwrap().into();
+            argv.push(rstring);
+        }
+    }
+     
+    wordle5(argv);
+    0
+}
+
+#[cfg(feature = "std")]
+fn main() {
+    let argv: Vec<String> = std::env::args().collect();
+    wordle5(argv);
 }

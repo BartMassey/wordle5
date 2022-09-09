@@ -5,6 +5,12 @@ edition = "2021"
 
 [dependencies]
 rayon = "1.5.3"
+libc-print = "0.1.20"
+libc_alloc = "1.0.3"
+
+[dependencies.libc]
+version = "0.2.132"
+default-features = false
 
 [dependencies.once_cell]
 version = "1.14.0"
@@ -20,7 +26,15 @@ path = "wordle5.rs"
 
 [profile.release]
 panic = "abort"
+# https://github.com/rust-lang/rust/issues/47493#issuecomment-606385776
+lto = true
+
+[profile.dev]
+panic = "abort"
+lto = true
 
 [features]
+default = []
 instrument = ["once_cell"]
 timing = ["howlong"]
+std = []
