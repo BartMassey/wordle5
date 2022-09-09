@@ -26,6 +26,9 @@ mod instrument {
 #[cfg(feature = "instrument")]
 use instrument::*;
 
+#[cfg(feature = "timing")]
+use howlong::HighResolutionTimer;
+
 use std::sync::atomic::{
     AtomicBool,
     Ordering::{Acquire, Release},
@@ -448,13 +451,27 @@ fn main() {
 
     PRUNE_VOWELS.store(args.prune_vowels, Release);
 
+    #[cfg(feature = "timing")]
+    let timer = HighResolutionTimer::new();
+
     // Build supporting data.
     let dict = assemble_dicts(&args.dicts);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
     let groups = make_letter_groups(&ids);
 
+    #[cfg(feature = "timing")]
+    println!("init: {:?}", timer.elapsed());
+
+    #[cfg(feature = "timing")]
+    let timer = HighResolutionTimer::new();
+
+    let solve = solver(&groups);
+
+    #[cfg(feature = "timing")]
+    println!("solver: {:?}", timer.elapsed());
+
     // Solve the problem and show any resulting solutions.
-    for soln in solver(&groups).into_iter() {
+    for soln in solve.into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
         }

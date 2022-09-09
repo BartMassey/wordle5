@@ -31,13 +31,14 @@ To "cheat" you can take advantage of "expert" knowledge
 about the existence of vowels. Using the `--prune-vowels`
 flag takes the time to about 7ms for all solvers.
 
-Flamegraph profiling shows that about two-thirds of the
-runtime of the single-threaded version is spent in the
-solver proper, so there's still some room for improvement
-there, albeit with diminishing returns. For the
-multi-threaded versions the solver time appears to be in the
-noise: much larger dictionaries would be needed to exercise
-many threads sufficiently.
+Timing shows that much of the runtime of the single-threaded
+version is spent in the solver proper: about 2ms for init vs
+7ms for the solver. Thus there's still some room for
+improvement by solver speedup. Vowel pruning speeds up the
+solver by about 2ms. For the multi-threaded versions the
+solver time appears to be almost bounded by thread overhead:
+much larger dictionaries would be needed to exercise many
+threads sufficiently.
 
 The `main` branch code uses `std::fs::read_to_string()`
 followed by line splitting of the string to read the
@@ -65,11 +66,20 @@ To see node counts from the solver, build with the
 `instrument` feature. This will display node counts at each
 search tree depth as well as a total.
 
+To get times for initialization and solver, build with the
+`timing` feature. This will display the wall-clock time for
+each of these pieces
+
 At this point, the performance is really fragile; small
-tweaks make unexplained differences. I think it's unlikely
-that further tuning of the existing approach can make this
-code dramatically quicker: a whole new solver algorithm
-would be needed.
+tweaks make hard-to-understand differences. I think it's
+unlikely that further tuning of the existing approach can
+make this code dramatically quicker: a whole new solver
+algorithm would be needed. In terms of overheads, one could
+cheat massively by compiling the pre-digested dictionaries
+into the program to save a millisecond or two; more
+troublingly, one could go `no_std` to get rid of the 2-3ms
+of Rust startup overhead, although this would be a massive
+uglification of the code.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
@@ -130,6 +140,12 @@ To get node count instrumentation, compile with feature
 `instrument`, for example
 ```
 cargo run --release --features=instrument -- --sequential words-nyt-wordle.txt
+```
+
+To get timings for initialization and solve, compile with feature
+`timing`, for example
+```
+cargo run --release --features=timing -- --sequential words-nyt-wordle.txt
 ```
 
 ## License
