@@ -1,0 +1,20 @@
+%ident g p i d seen soln skipped letter words w
+Calculate and sort a sequence of "letter groups" g and a set of pseudovowels p
+To search at position i "in" g at depth d,
+  with a set of seen letters and a partial soln and a skipped indicator:
+    if d == 5
+        save soln
+        return
+    find the next position j after i with a not-seen g.letter
+    for each word w in g.words
+        if w contains seen letters
+            continue
+        if pseudovowel pruning eliminates w
+            continue
+        if vowel pruning is enabled and eliminates w
+            continue
+        search at position i + 1, depth d + 1, skipped,
+          with updated seen and soln
+    if not skipped
+        search at position i + 1, depth d, skipped true,
+          with seen and soln ("skip" g.letter)

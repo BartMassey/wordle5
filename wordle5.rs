@@ -128,6 +128,7 @@ const VOWELS: LetterSet = {
 struct LetterGroup {
     letter: Char,
     words: Vec<LetterSet>,
+    pseudovowels: LetterSet,
 }
 
 /// Given a list of `LetterSet`s representing all the words
@@ -159,6 +160,13 @@ struct LetterGroup {
 /// word list is pruned to contain only words containing zero
 /// or one letters indexing any previous group.  This
 /// pruning allows faster search.
+///
+/// We also return a `LetterSet` of "pseudo-vowels" for each
+/// `LetterGroup`. If non-empty, this is a set of five
+/// letters such that at least one of them must be in any
+/// word not containing the key letter from any preceding
+/// group. This is another pruning opportunity. An empty
+/// `LetterSet` indicates that no pseudo-vowels were found.
 fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
     // Make the letter groups.
     let mut groups = Vec::new();
@@ -169,7 +177,7 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
             .filter(|&&word| word & (1 << letter) != 0)
             .copied()
             .collect();
-        groups.push(LetterGroup { letter, words });
+        groups.push(LetterGroup { letter, words, pseudovowels: 0 });
     }
 
     // Sort the letter groups by increasing length of word list.
@@ -191,6 +199,69 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
             g.words.retain(|w| (VOWELS & w).count_ones() <= 2);
             seen |= 1 << g.letter;
         }
+    }
+
+    // Return pseudovowels for the given remaining letter groups,
+    // or 0 if no pseudovowels are found.
+    // XXX FIXME This can be made more precise, as per below.
+    let find_pseudovowels = |priority_letters: LetterSet| {
+        for g in &groups[1..] {
+            for &w in &g.words {
+                if priority_letters & w == 0 {
+                    return 0;
+                }
+            }
+        }
+        priority_letters
+    };
+
+    // XXX FIXME For now, we will do a cheap computation by
+    // just choosing the globally most common letters.
+    let mut pseudovowels = 0;
+    for n in 2..25 {
+        let priority_letters: LetterSet = groups
+            .iter()
+            .rev()
+            .take(n)
+            .map(|g| 1 << g.letter)
+            .fold(0, |cs, c| cs | c);
+        let pvs = find_pseudovowels(priority_letters);
+        if pvs != 0 {
+            pseudovowels = pvs;
+            break;
+        }
+    }
+
+    #[cfg(feature = "instrument")]
+    if pseudovowels != 0 {
+        print!("pseudovowels: ");
+        for i in 0..26 {
+            if pseudovowels & (1 << i) != 0 {
+                print!("{}", char::try_from('a' as u32 + i).unwrap());
+            }
+        }
+        println!();
+    } else {
+        println!("no pseudovowels");
+    }
+
+    // Calculate pseudo-vowels.
+    // XXX FIXME Not currently needed, since the
+    // pseudovowels are constant and apply to all groups.
+    /*
+    let mut seen: LetterSet = 0;
+    let ngroups = groups.len();
+    for i in 0..ngroups {
+        let pseudovowels = find_pseudovowels(&groups[i+1..], seen);
+        if pseudovowels != 0 && (i == 0 || groups[i - 1].pseudovowels == 0) {
+            println!("pv: {i}");
+        }
+        groups[i].pseudovowels = pseudovowels;
+        seen |= 1 << groups[i].letter;
+    }
+    */
+    for g in &mut groups {
+        g.pseudovowels = pseudovowels;
     }
 
     groups
@@ -276,11 +347,22 @@ fn solvify(
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
     let prune_vowels = PRUNE_VOWELS.load(Acquire);
+    let pseudovowels = groups[posn].pseudovowels;
+    let npseudovowels = pseudovowels.count_ones() as usize;
     for &word in &groups[posn].words {
         // Check for letter re-use.
         if seen & word != 0 {
             continue;
         }
+
+        // Check for pseudovowel over-use.
+        if pseudovowels != 0 {
+            let pseudovowels_used = ((seen | word) & pseudovowels).count_ones() as usize;
+            if npseudovowels - pseudovowels_used < 4 - count {
+                continue;
+            }
+        }
+
         // Check for vowel over-use.
         if prune_vowels {
             let vowels_used = ((seen | word) & VOWELS).count_ones() as usize;
@@ -288,6 +370,8 @@ fn solvify(
                 continue;
             }
         }
+
+        // Found a partial solution.
         cur[count] = word;
         solvify(groups, cur, solns, posn + 1, count + 1, seen | word, skipped);
     }
