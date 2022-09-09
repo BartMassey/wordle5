@@ -54,6 +54,10 @@ iterative using an explicit stack. It is not noticeably
 faster currently, but that appears to be a function of the
 already-rapid solver time.
 
+The branch `no_std` in this repo allows building a `no_std`
+version of the program. It is not faster than the `std`
+version, but was sure more work to produce.
+
 When building for best performance, you may want to build a
 statically-linked binary for more reproducible best times.
 On my box I use the `x86_64-unknown-linux-musl` build target
