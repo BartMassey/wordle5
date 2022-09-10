@@ -17,6 +17,8 @@ path = "wordle5.rs"
 
 [profile.release]
 panic = "abort"
+lto = true
+codegen-units = 1
 
 [features]
 instrument = ["once_cell"]
