@@ -15,7 +15,7 @@ this solution inspired me to create my own solution in Rust;
 specifically, I started by responding to this
 [Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
-This program currently solves the problem in about 8ms for
+This program currently solves the problem in about 7ms for
 me. See the [Performance](#performance) section below for
 much more information.
 
@@ -85,10 +85,23 @@ Several kinds of pruning are applied this search.
   the remaining words. Thus, *w* can be omitted from the
   search.
 
-  This version of the program finds the standard vowels
-  "aeiouyw" itself and uses them as pseudovowels. This is
-  "fair" because the standard vowels are being discovered by
-  the program rather than using expert knowledge.
+  The program finds the standard vowels "aeiouyw" itself and
+  uses them as pseudovowels. This is "fair" because the
+  standard vowels are being discovered by the program rather
+  than using expert knowledge.
+
+  The program also uses a second set of pseudovowels for
+  pruning. These are the "global pseudovowels", which are
+  calculated greedily using letter frequencies over the
+  dictionary rather than iteratively. The program finds
+  global pseudovowels "aeilnorsu" for the standard
+  dictionary. (Fun Wordle consequence: if you start with
+  "alien" and miss everything, "tours" is guaranteed to hit
+  something.)
+
+  Pruning against global pseudovowels and standard vowels
+  gives a gives a large reduction in search space. This is a
+  bit of a mystery to me at this point.
 
 The resulting algorithm looks something like this:
 
@@ -135,15 +148,14 @@ modern processors have finally incorporated the damn thing,
 and that Rust's `count_ones()` intrinsic provides easy
 access to it.
 
-A bunch of stuff that might either slow things down or just
-make them less convenient has been hidden behind Rust
-`feature` gates and must be turned on at compile time. See
-below for specifics.
+Convenience features that might slow things down slightly
+have been hidden behind Rust `feature` gates and must be
+turned on at compile time. See below for specifics.
 
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 8ms single-threaded on my Ryzen 9 3900X desktop.
+in about 7ms single-threaded on my Ryzen 9 3900X desktop.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
@@ -152,7 +164,7 @@ faster than the next-best reported solution.
 
 Timing shows that much of the runtime of the single-threaded
 version is spent in the solver proper: about 2ms for init,
-4ms for the solver, 2ms of unknown overhead. This leaves
+3ms for the solver, 2ms of unknown overhead. This leaves
 little room for improvement by solver speedup.
 
 The `main` branch code uses `std::fs::read_to_string()`

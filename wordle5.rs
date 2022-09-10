@@ -129,6 +129,7 @@ struct LetterGroup {
 struct LetterSpace {
     groups: Vec<LetterGroup>,
     pseudovowels: LetterSet,
+    global_pseudovowels: LetterSet,
 }
 
 /// Given a list of `LetterSet`s representing all the words
@@ -195,9 +196,7 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
     }
 
     // Calculate global pseudovowels or 0 if no pseudovowels are found.
-    let find_pseudovowels = || {
-        let mut candidate_words = words.to_vec();
-
+    let find_pseudovowels = |global| {
         // Find the most frequent letter in the current list.
         let next_letter = |words: &[LetterSet]| {
             (0..26)
@@ -210,17 +209,6 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
                 .1
         };
 
-        // Calculate pseudovowels.
-        let mut pv_set = 0;
-        let mut pv_letters = Vec::with_capacity(26);
-        while !candidate_words.is_empty() {
-            let letter = next_letter(&candidate_words);
-            pv_letters.push(letter);
-            let c = 1 << letter;
-            pv_set |= c;
-            candidate_words.retain(|&w| w & c == 0);
-        }
-
         // Check a set of pseudovowels for validity.
         let is_pseudovowels = |pseudovowels| {
             for &w in words {
@@ -231,8 +219,49 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
             true
         };
 
+        // Calculate pseudovowels.
+        let mut pv_set = 0;
+        let mut pv_letters = Vec::with_capacity(26);
+        if global {
+            let mut letter_freqs: Vec<(usize, Char)> = (0..26)
+                .map(|l| {
+                    let count = words
+                        .iter()
+                        .filter(|&&w| w & (1 << l) != 0)
+                        .count();
+                    (count, l)
+                })
+                .collect();
+            letter_freqs.sort_unstable_by_key(|(c, _)| std::cmp::Reverse(*c));
+            // Note: This loop is guaranteed to terminate
+            // early with a set of pseudovowels, which may
+            // be the whole alphabet.
+            for (_, l) in letter_freqs {
+                pv_set |= 1 << l;
+                pv_letters.push(l);
+                if is_pseudovowels(pv_set) {
+                    break;
+                }
+            }
+        } else {
+            let mut candidate_words = words.to_vec();
+            // Note: This loop is guaranteed to terminate
+            // with a set of pseudovowels, which may be the
+            // whole alphabet.
+            while !candidate_words.is_empty() {
+                let letter = next_letter(&candidate_words);
+                pv_letters.push(letter);
+                let c = 1 << letter;
+                pv_set |= c;
+                candidate_words.retain(|&w| w & c == 0);
+            }
+        }
+        if pv_set.count_ones() >= 26 {
+            return 0;
+        }
+
         // Try to remove an extra element from pseudovowels.
-        let reduce_pv = |pv_letters: &[LetterSet], pv_set: LetterSet| {
+        let reduce_pv = |pv_letters: &[Char], pv_set: LetterSet| {
             for &l in pv_letters.iter() {
                 let pv_reduced = pv_set & !(1 << l);
                 if is_pseudovowels(pv_reduced) {
@@ -243,28 +272,42 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
         };
 
         // Prune pseudovowels greedily until no further prune works.
-        pv_letters.reverse();
-        while let Some(letter) = reduce_pv(&pv_letters, pv_set) {
-            pv_letters.retain(|&l| l != letter);
-            pv_set &= !(1 << letter);
+        if !global {
+            pv_letters.reverse();
+            while let Some(letter) = reduce_pv(&pv_letters, pv_set) {
+                pv_letters.retain(|&l| l != letter);
+                pv_set &= !(1 << letter);
+            }
         }
 
         pv_set
     };
-    let pseudovowels = find_pseudovowels();
+
+    let pseudovowels = find_pseudovowels(false);
     #[cfg(feature = "instrument")]
     println!("pseudovowels: {}", letterset_string(pseudovowels));
 
+    let global_pseudovowels = find_pseudovowels(true);
+    #[cfg(feature = "instrument")]
+    println!("global pseudovowels: {}", letterset_string(global_pseudovowels));
+
     // Filter groups for legal pseudovowel usage.
-    let npseudovowels = pseudovowels.count_ones();
+    let ps = pseudovowels;
+    let gps = global_pseudovowels;
+    let nps = ps.count_ones();
+    let ngps = gps.count_ones();
     for g in &mut groups {
-        g.words
-            .retain(|w| (pseudovowels & w).count_ones() + 5 <= npseudovowels);
+        g.words.retain(move |w| {
+            let pkeep = (ps & w).count_ones() + 5 <= nps;
+            let gpkeep = (gps & w).count_ones() + 5 <= ngps;
+            pkeep && gpkeep
+        });
     }
 
     LetterSpace {
         groups,
         pseudovowels,
+        global_pseudovowels,
     }
 }
 
@@ -331,8 +374,10 @@ fn solvify(
 
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
-    let pseudovowels = space.pseudovowels;
-    let npseudovowels = pseudovowels.count_ones() as usize;
+    let pvs = space.pseudovowels;
+    let npvs = pvs.count_ones() as usize;
+    let gpvs = space.global_pseudovowels;
+    let ngpvs = gpvs.count_ones() as usize;
     for &word in &groups[posn].words {
         // Check for letter re-use.
         if seen & word != 0 {
@@ -340,11 +385,17 @@ fn solvify(
         }
 
         // Check for pseudovowel over-use.
-        if pseudovowels != 0 {
-            let pseudovowels_used = ((seen | word) & pseudovowels).count_ones() as usize;
-            if npseudovowels - pseudovowels_used < 4 - count {
-                continue;
+        let overused = |p: LetterSet, n: usize| {
+            if p != 0 {
+                let p_used = ((seen | word) & p).count_ones() as usize;
+                if n - p_used < 4 - count {
+                    return true;
+                }
             }
+            false
+        };
+        if overused(pvs, npvs) || overused(gpvs, ngpvs) {
+            continue;
         }
 
         // Found a partial solution.
