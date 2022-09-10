@@ -3,10 +3,12 @@ Bart Massey 2022
 
 ## Background
 
-YouTuber Matt Parker proposed an interesting problem
+YouTuber Matt Parker proposed and solved
+[an interesting problem](https://youtu.be/_-AfhLQfb6w)
 inspired by the game *Wordle* a while back: find a set of
 five five-letter words from a dictionary that collectively
-contain 25 of the 26 letters of the English alphabet.
+contain 25 of the 26 letters of the English alphabet. I'm
+calling this problem *Wordle5,* because names are convenient.
 
 For a summary history of the problem, see the `README` in
 Philip Meier's
