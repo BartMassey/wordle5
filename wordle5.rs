@@ -207,7 +207,6 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
 
     // Return pseudovowels for the given remaining letter groups,
     // or 0 if no pseudovowels are found.
-    // XXX FIXME This can be made more precise, as per below.
     let find_pseudovowels = |priority_letters: LetterSet| {
         for g in &groups[1..] {
             for &w in &g.words {
@@ -219,8 +218,8 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
         priority_letters
     };
 
-    // XXX FIXME For now, we will do a cheap computation by
-    // just choosing the globally most common letters.
+    // For now, we will do a cheap computation by just
+    // choosing the globally most common letters.
     let mut pseudovowels = 0;
     for n in 2..25 {
         let priority_letters: LetterSet = groups
@@ -250,20 +249,6 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
     }
 
     // Calculate pseudo-vowels.
-    // XXX FIXME Not currently needed, since the
-    // pseudovowels are constant and apply to all groups.
-    /*
-    let mut seen: LetterSet = 0;
-    let ngroups = groups.len();
-    for i in 0..ngroups {
-        let pseudovowels = find_pseudovowels(&groups[i+1..], seen);
-        if pseudovowels != 0 && (i == 0 || groups[i - 1].pseudovowels == 0) {
-            println!("pv: {i}");
-        }
-        groups[i].pseudovowels = pseudovowels;
-        seen |= 1 << groups[i].letter;
-    }
-    */
     for g in &mut groups {
         g.pseudovowels = pseudovowels;
     }
