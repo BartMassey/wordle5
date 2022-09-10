@@ -279,27 +279,30 @@ cargo run --release words-nyt-wordle.txt
 ```
 
 You can specify a solver to use with a command-line
-argument.
+argument `--solver`.
 
-* `--scoped-threads`: This will use the `scoped-threads` multi-threaded solver,
-  which is the default.
+* `--solver sequential`: This will get the sequential
+  (single-threaded) solver, which is also the default.  It
+  may be slightly slower than the multi-threaded ones.
 
-* `--rayon`: This will use the `rayon` multi-threaded solver, which has similar
-  performance to `--scoped-threads`.
+* `--solver scoped-threads`: This will use the `scoped-threads`
+  multi-threaded solver, which spawns a thread per word for
+  the top-level words in the search.
 
-* `--sequential`: This will get the sequential
-  (single-threaded) solver. It's slower than the
-  multi-threaded ones.
+* `--solver rayon`: This will use the `rayon` multi-threaded
+  solver, which has similar performance to
+  `scoped-threads` except for slightly more startup
+  overhead.
 
 So for example
 ```
-cargo run --release -- --sequential words-nyt-wordle.txt
+cargo run --release -- --solver rayon words-nyt-wordle.txt
 ```
 
 To turn on vowel pruning, add the `--prune-vowels` flag.
 
-To get node count instrumentation, compile with feature
-`instrument`, for example
+To get a pseudovowel list and node count instrumentation,
+compile with feature `instrument`, for example
 ```
 cargo run --release --features=instrument -- --sequential words-nyt-wordle.txt
 ```
