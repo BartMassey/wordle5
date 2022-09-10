@@ -20,7 +20,7 @@ mod instrument {
     pub use once_cell::sync::Lazy;
     pub use std::sync::atomic::{
         AtomicUsize,
-        Ordering::{ Acquire, Relaxed, Release, AcqRel},
+        Ordering::{AcqRel, Acquire, Relaxed, Release},
     };
     pub static NODES: Lazy<[AtomicUsize; 6]> =
         Lazy::new(|| std::array::from_fn(|_| AtomicUsize::new(0)));
@@ -126,11 +126,18 @@ fn assemble_dicts(dicts: &[String]) -> Map<LetterSet, String> {
 struct LetterGroup {
     letter: Char,
     words: Vec<LetterSet>,
+}
+
+/// Type of Wordle5's "search space".
+struct LetterSpace {
+    groups: Vec<LetterGroup>,
     pseudovowels: LetterSet,
 }
 
 /// Given a list of `LetterSet`s representing all the words
-/// in the dictionary, return a list of `LetterGroup`s.
+/// in the dictionary, return a list of `LetterGroup`s and a
+/// set of pseudovowels.
+///
 /// Each `LetterGroup` represents a list of all words from
 /// the dictionary containing a given letter. The collective
 /// output of this function contains one `LetterGroup` for
@@ -155,17 +162,16 @@ struct LetterGroup {
 /// ```
 ///
 /// This isn't entirely accurate, though. Each `LetterGroup`
-/// word list is pruned to contain only words containing zero
-/// or one letters indexing any previous group.  This
-/// pruning allows faster search.
+/// word list is pruned of words containing two or more
+/// letters indexing any previous group.  It is also pruned
+/// of words containing excess pseudovowels. This pruning
+/// allows faster search.
 ///
-/// We also return a `LetterSet` of "pseudo-vowels" for each
-/// `LetterGroup`. If non-empty, this is a set of five
-/// letters such that at least one of them must be in any
-/// word not containing the key letter from any preceding
-/// group. This is another pruning opportunity. An empty
-/// `LetterSet` indicates that no pseudo-vowels were found.
-fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
+/// We also return a `LetterSet` of "pseudovowels".  This is
+/// a set of letters such that at least one of them must be
+/// in any word not containing the key letter from any
+/// preceding group. This is another pruning opportunity.
+fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
     // Make the letter groups.
     let mut groups = Vec::new();
     for letter in 0..26 {
@@ -175,11 +181,7 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
             .filter(|&&word| word & (1 << letter) != 0)
             .copied()
             .collect();
-        groups.push(LetterGroup {
-            letter,
-            words,
-            pseudovowels: 0,
-        });
+        groups.push(LetterGroup { letter, words });
     }
 
     // Sort the letter groups by increasing length of word list.
@@ -203,10 +205,7 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
         let next_letter = |words: &[LetterSet]| {
             (0..26)
                 .map(|l| {
-                    let count = words
-                        .iter()
-                        .filter(|&&w| w & (1 << l) != 0)
-                        .count();
+                    let count = words.iter().filter(|&&w| w & (1 << l) != 0).count();
                     (count, l)
                 })
                 .max()
@@ -259,33 +258,16 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
     #[cfg(feature = "instrument")]
     println!("pseudovowels: {}", letterset_string(pseudovowels));
 
-
-    // Filter for legal pseudovowel usage.
+    // Filter groups for legal pseudovowel usage.
     let npseudovowels = pseudovowels.count_ones();
     for g in &mut groups {
-        g.words.retain(|w| (pseudovowels & w).count_ones() <= npseudovowels - 5);
+        g.words
+            .retain(|w| (pseudovowels & w).count_ones() + 5 <= npseudovowels);
     }
 
-    // Set pseudovowels.
-    for g in &mut groups {
-        g.pseudovowels = pseudovowels;
-    }
-
-    groups
-}
-
-#[test]
-fn test_make_letter_groups() {
-    let w = 0b11111;
-    let groups = make_letter_groups(&[w]);
-    assert_eq!(groups.len(), 26);
-    for g in &groups[..21] {
-        assert_eq!(g.words, vec![]);
-    }
-    assert_eq!(groups[21].words, vec![w]);
-    assert_eq!(groups[22].words, vec![w]);
-    for g in &groups[23..] {
-        assert_eq!(g.words, vec![]);
+    LetterSpace {
+        groups,
+        pseudovowels,
     }
 }
 
@@ -313,7 +295,7 @@ type Solution = [LetterSet; 5];
 /// added to the vec of `solns`.
 #[allow(clippy::too_many_arguments)]
 fn solvify(
-    groups: &[LetterGroup],
+    space: &LetterSpace,
     cur: &mut Solution,
     solns: &mut Vec<Solution>,
     mut posn: usize,
@@ -332,6 +314,7 @@ fn solvify(
     }
 
     // Search forward for the next unused letter.
+    let groups = &space.groups;
     loop {
         // Ran off the end. End this function invocation.
         if posn >= 26 {
@@ -351,7 +334,7 @@ fn solvify(
 
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
-    let pseudovowels = groups[posn].pseudovowels;
+    let pseudovowels = space.pseudovowels;
     let npseudovowels = pseudovowels.count_ones() as usize;
     for &word in &groups[posn].words {
         // Check for letter re-use.
@@ -369,44 +352,36 @@ fn solvify(
 
         // Found a partial solution.
         cur[count] = word;
-        solvify(
-            groups,
-            cur,
-            solns,
-            posn + 1,
-            count + 1,
-            seen | word,
-            skipped,
-        );
+        solvify(space, cur, solns, posn + 1, count + 1, seen | word, skipped);
     }
 
     // If possible, try extending the current solution by
     // skipping the current `LetterGroup`. This can only
     // happen once for each solution.
     if !skipped {
-        solvify(groups, cur, solns, posn + 1, count, seen, true);
+        solvify(space, cur, solns, posn + 1, count, seen, true);
     }
 }
 
 /// Type of solver functions.
-type Solver = fn(&[LetterGroup]) -> Vec<Solution>;
+type Solver = fn(&LetterSpace) -> Vec<Solution>;
 
 /// Stub to cleanly sequentially invoke `solvify()` and
 /// return its solutions.
-fn solve_sequential(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_sequential(space: &LetterSpace) -> Vec<Solution> {
     let mut partial = [0; 5];
     let mut solns = Vec::new();
-    solvify(groups, &mut partial, &mut solns, 0, 0, 0, false);
+    solvify(space, &mut partial, &mut solns, 0, 0, 0, false);
     solns
 }
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via `rayon` and return its solutions.
-fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_rayon(space: &LetterSpace) -> Vec<Solution> {
     use rayon::prelude::*;
 
     // We will be parallelising over the first group.
-    let g = &groups[0];
+    let g = &space.groups[0];
     // Gross hack to handle the skip case at the base level
     // in parallel with the other cases.
     let mut ws = g.words.clone();
@@ -422,10 +397,10 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
             let mut solns = Vec::new();
             if w != 0 {
                 partial[0] = w;
-                solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+                solvify(space, &mut partial, &mut solns, 1, 1, w, false);
             } else {
                 // Letter skip case.
-                solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+                solvify(space, &mut partial, &mut solns, 1, 0, 0, true);
             }
             solns
         })
@@ -437,11 +412,11 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
 
 /// Stub to invoke `solvify()` using top-level parallelism
 /// via scoped threads and return its solutions.
-fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
+fn solve_scoped_threads(space: &LetterSpace) -> Vec<Solution> {
     use std::thread::{scope, ScopedJoinHandle};
 
     // We will be parallelising over the first group.
-    let g = &groups[0];
+    let g = &space.groups[0];
     // Gross hack to handle the skip case at the base level
     // in parallel with the other cases.
     let mut ws = g.words.clone();
@@ -465,10 +440,10 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
                     let mut solns = Vec::new();
                     if w != 0 {
                         partial[0] = w;
-                        solvify(groups, &mut partial, &mut solns, 1, 1, w, false);
+                        solvify(space, &mut partial, &mut solns, 1, 1, w, false);
                     } else {
                         // Letter skip case.
-                        solvify(groups, &mut partial, &mut solns, 1, 0, 0, true);
+                        solvify(space, &mut partial, &mut solns, 1, 0, 0, true);
                     }
                     solns
                 })
@@ -543,7 +518,7 @@ fn main() {
     // Build supporting data.
     let dict = assemble_dicts(&args.dicts);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
-    let groups = make_letter_groups(&ids);
+    let space = make_letter_space(&ids);
 
     #[cfg(feature = "timing")]
     println!("init: {:?}", timer.elapsed());
@@ -551,7 +526,7 @@ fn main() {
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();
 
-    let solve = solver(&groups);
+    let solve = solver(&space);
 
     #[cfg(feature = "timing")]
     println!("solver: {:?}", timer.elapsed());
