@@ -169,12 +169,12 @@ struct LetterSpace {
 /// a set of letters such that at least one of them must be
 /// in any word not containing the key letter from any
 /// preceding group. This is another pruning opportunity.
-fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
+fn make_letter_space(dwords: &[LetterSet]) -> LetterSpace {
     // Make the letter groups.
     let mut groups = Vec::new();
     for letter in 0..26 {
         // Save a letter group for each letter `c`.
-        let words: Vec<LetterSet> = words
+        let words: Vec<LetterSet> = dwords
             .iter()
             .filter(|&&word| word & (1 << letter) != 0)
             .copied()
@@ -195,37 +195,25 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
         seen |= 1 << g.letter;
     }
 
-    // Calculate global pseudovowels or 0 if no pseudovowels are found.
-    let find_pseudovowels = |global| {
-        // Find the most frequent letter in the current list.
-        let next_letter = |words: &[LetterSet]| {
-            (0..26)
-                .map(|l| {
-                    let count = words.iter().filter(|&&w| w & (1 << l) != 0).count();
-                    (count, l)
-                })
-                .max()
-                .unwrap()
-                .1
-        };
-
-        // Check a set of pseudovowels for validity.
-        let is_pseudovowels = |pseudovowels| {
-            for &w in words {
-                if w & pseudovowels == 0 {
-                    return false;
-                }
+    // Check a set of pseudovowels for validity.
+    let is_pseudovowels = |pseudovowels, words| {
+        for &w in words {
+            if w & pseudovowels == 0 {
+                return false;
             }
-            true
-        };
+        }
+        true
+    };
 
+    // Calculate pseudovowels or 0 if no pseudovowels are found.
+    let find_pseudovowels = |global| {
         // Calculate pseudovowels.
         let mut pv_set = 0;
         let mut pv_letters = Vec::with_capacity(26);
         if global {
             let mut letter_freqs: Vec<(usize, Char)> = (0..26)
                 .map(|l| {
-                    let count = words
+                    let count = dwords
                         .iter()
                         .filter(|&&w| w & (1 << l) != 0)
                         .count();
@@ -233,46 +221,59 @@ fn make_letter_space(words: &[LetterSet]) -> LetterSpace {
                 })
                 .collect();
             letter_freqs.sort_unstable_by_key(|(c, _)| std::cmp::Reverse(*c));
+
             // Note: This loop is guaranteed to terminate
             // early with a set of pseudovowels, which may
             // be the whole alphabet.
             for (_, l) in letter_freqs {
                 pv_set |= 1 << l;
                 pv_letters.push(l);
-                if is_pseudovowels(pv_set) {
+                if is_pseudovowels(pv_set, dwords) {
                     break;
                 }
             }
         } else {
-            let mut candidate_words = words.to_vec();
+            // Find the most frequent letter in the current list.
+            let next_letter = |words: &[LetterSet]| {
+                (0..26)
+                    .map(|l| {
+                        let count = words.iter().filter(|&&w| w & (1 << l) != 0).count();
+                        (count, l)
+                    })
+                    .max()
+                    .unwrap()
+                    .1
+            };
+
+            let mut words = dwords.to_vec();
             // Note: This loop is guaranteed to terminate
             // with a set of pseudovowels, which may be the
             // whole alphabet.
-            while !candidate_words.is_empty() {
-                let letter = next_letter(&candidate_words);
+            while !words.is_empty() {
+                let letter = next_letter(&words);
                 pv_letters.push(letter);
                 let c = 1 << letter;
                 pv_set |= c;
-                candidate_words.retain(|&w| w & c == 0);
+                words.retain(|&w| w & c == 0);
             }
         }
         if pv_set.count_ones() >= 26 {
             return 0;
         }
 
-        // Try to remove an extra element from pseudovowels.
-        let reduce_pv = |pv_letters: &[Char], pv_set: LetterSet| {
-            for &l in pv_letters.iter() {
-                let pv_reduced = pv_set & !(1 << l);
-                if is_pseudovowels(pv_reduced) {
-                    return Some(l);
-                }
-            }
-            None
-        };
-
         // Prune pseudovowels greedily until no further prune works.
         if !global {
+            // Try to remove an extra element from pseudovowels.
+            let reduce_pv = |pv_letters: &[Char], pv_set: LetterSet| {
+                for &l in pv_letters.iter() {
+                    let pv_reduced = pv_set & !(1 << l);
+                    if is_pseudovowels(pv_reduced, dwords) {
+                        return Some(l);
+                    }
+                }
+                None
+            };
+
             pv_letters.reverse();
             while let Some(letter) = reduce_pv(&pv_letters, pv_set) {
                 pv_letters.retain(|&l| l != letter);

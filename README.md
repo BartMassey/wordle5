@@ -15,7 +15,7 @@ this solution inspired me to create my own solution in Rust;
 specifically, I started by responding to this
 [Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
-This program currently solves the problem in about 7ms for
+This program currently solves the problem in about 6ms for
 me. See the [Performance](#performance) section below for
 much more information.
 
@@ -95,9 +95,9 @@ Several kinds of pruning are applied this search.
   calculated greedily using letter frequencies over the
   dictionary rather than iteratively. The program finds
   global pseudovowels "aeilnorsu" for the standard
-  dictionary. (Fun Wordle consequence: if you start with
-  "alien" and miss everything, "tours" is guaranteed to hit
-  something.)
+  dictionary. Note that these are only pseudovowels for a
+  dictionary of words with no duplicate letters: "pygmy" is
+  a counterexample otherwise.
 
   Pruning against global pseudovowels and standard vowels
   gives a gives a large reduction in search space. This is a
@@ -155,7 +155,7 @@ turned on at compile time. See below for specifics.
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 7ms single-threaded on my Ryzen 9 3900X desktop.
+in about 6ms single-threaded on my Ryzen 9 3900X desktop.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
@@ -164,7 +164,7 @@ faster than the next-best reported solution.
 
 Timing shows that much of the runtime of the single-threaded
 version is spent in the solver proper: about 2ms for init,
-3ms for the solver, 2ms of unknown overhead. This leaves
+2ms for the solver, 2ms of unknown overhead. This leaves
 little room for improvement by solver speedup.
 
 The `main` branch code uses `std::fs::read_to_string()`
