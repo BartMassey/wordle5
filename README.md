@@ -159,7 +159,7 @@ in about 6ms single-threaded on my Ryzen 9 3900X desktop.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
-the source of fastest solutions right now: I'm about 2.5×
+the source of fastest solutions right now: I'm about 4×
 faster than the next-best reported solution.
 
 Timing shows that much of the runtime of the single-threaded
@@ -264,16 +264,8 @@ cargo run --release words-nyt-wordle.txt
 ```
 
 To get a pseudovowel list and node count instrumentation,
-compile with feature `instrument`, for example
-```
-cargo run --release --features=instrument -- --sequential words-nyt-wordle.txt
-```
-
-To get timings for initialization and solve, compile with feature
-`timing`, for example
-```
-cargo run --release --features=timing -- --sequential words-nyt-wordle.txt
-```
+compile with feature `instrument`. To get timings for
+initialization and solve, compile with feature `timing`.
 
 ## License
 
