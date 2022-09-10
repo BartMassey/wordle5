@@ -18,8 +18,10 @@ use std::collections::HashMap as Map;
 #[cfg(feature = "instrument")]
 mod instrument {
     pub use once_cell::sync::Lazy;
-    pub use std::sync::atomic::{AtomicUsize, Ordering::AcqRel};
-
+    pub use std::sync::atomic::{
+        AtomicUsize,
+        Ordering::{ Acquire, Relaxed, Release, AcqRel},
+    };
     pub static NODES: Lazy<[AtomicUsize; 6]> =
         Lazy::new(|| std::array::from_fn(|_| AtomicUsize::new(0)));
 }
@@ -28,11 +30,6 @@ use instrument::*;
 
 #[cfg(feature = "timing")]
 use howlong::HighResolutionTimer;
-
-use std::sync::atomic::{
-    AtomicBool,
-    Ordering::{Acquire, Relaxed, Release},
-};
 
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
 /// representing the presence or absence of 'a', bit 1 'b',
@@ -123,16 +120,6 @@ fn assemble_dicts(dicts: &[String]) -> Map<LetterSet, String> {
     dict
 }
 
-/// `LetterSet` of vowels for pruning.
-const VOWELS: LetterSet = {
-    macro_rules! b {
-        ($c:expr) => {
-            (1 << ($c as u32 - 'a' as u32))
-        };
-    }
-    b!('a') | b!('e') | b!('i') | b!('o') | b!('u') | b!('y') | b!('w')
-};
-
 /// Type of all words that contain a given `Char`,
 /// represented as the `Char` tag together with a `Vec` of
 /// `LetterSet`s for the words.
@@ -208,14 +195,6 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
         seen |= 1 << g.letter;
     }
 
-    // Filter for legal vowel usage.
-    if PRUNE_VOWELS.load(Acquire) {
-        for g in &mut groups {
-            g.words.retain(|w| (VOWELS & w).count_ones() <= 2);
-            seen |= 1 << g.letter;
-        }
-    }
-
     // Calculate global pseudovowels or 0 if no pseudovowels are found.
     let find_pseudovowels = || {
         let mut candidate_words = words.to_vec();
@@ -280,6 +259,13 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
     #[cfg(feature = "instrument")]
     println!("pseudovowels: {}", letterset_string(pseudovowels));
 
+
+    // Filter for legal pseudovowel usage.
+    let npseudovowels = pseudovowels.count_ones();
+    for g in &mut groups {
+        g.words.retain(|w| (pseudovowels & w).count_ones() <= npseudovowels - 5);
+    }
+
     // Set pseudovowels.
     for g in &mut groups {
         g.pseudovowels = pseudovowels;
@@ -306,8 +292,6 @@ fn test_make_letter_groups() {
 /// Type of problem solutions: a five-element array with
 /// each element a `LetterSet` representing a word.
 type Solution = [LetterSet; 5];
-
-static PRUNE_VOWELS: AtomicBool = AtomicBool::new(false);
 
 /// Horribly-named function for actually solving the
 /// *Wordle5* problem for a given dictionary. The general
@@ -367,7 +351,6 @@ fn solvify(
 
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
-    let prune_vowels = PRUNE_VOWELS.load(Relaxed);
     let pseudovowels = groups[posn].pseudovowels;
     let npseudovowels = pseudovowels.count_ones() as usize;
     for &word in &groups[posn].words {
@@ -380,14 +363,6 @@ fn solvify(
         if pseudovowels != 0 {
             let pseudovowels_used = ((seen | word) & pseudovowels).count_ones() as usize;
             if npseudovowels - pseudovowels_used < 4 - count {
-                continue;
-            }
-        }
-
-        // Check for vowel over-use.
-        if prune_vowels {
-            let vowels_used = ((seen | word) & VOWELS).count_ones() as usize;
-            if 7 - vowels_used < 4 - count {
                 continue;
             }
         }
@@ -512,7 +487,6 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
 #[derive(Default)]
 struct WArgs {
     solver: Option<String>,
-    prune_vowels: bool,
     dicts: Vec<String>,
 }
 
@@ -524,7 +498,6 @@ fn parse_args() -> Result<WArgs, String> {
     let _ = args.next().unwrap();
     while let Some(arg) = args.next() {
         match &*arg {
-            "--prune-vowels" => result.prune_vowels = true,
             "--solver" => {
                 if let Some(solver) = args.next() {
                     result.solver = Some(solver);
@@ -563,8 +536,6 @@ fn main() {
             }
         }
     }
-
-    PRUNE_VOWELS.store(args.prune_vowels, Release);
 
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();

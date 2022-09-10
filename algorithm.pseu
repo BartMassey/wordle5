@@ -11,8 +11,6 @@ To search at position i "in" g at depth d,
             continue
         if pseudovowel pruning eliminates w
             continue
-        if vowel pruning is enabled and eliminates w
-            continue
         search at position i + 1, depth d + 1, skipped,
           with updated seen and soln
     if not skipped

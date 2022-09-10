@@ -71,10 +71,7 @@ Several kinds of pruning are applied this search.
 
   Having a set of *n* pseudovowels for a dictionary allows
   filtering out words that contain more than
-  *n*&nbsp;-&nbsp;5 pseudovowels up front. This is not
-  useful for the currently-calculated pseudovowels with 9
-  letters. It is useful for the seven-letter standard vowels
-  used during vowel pruning as discussed below.
+  *n*&nbsp;-&nbsp;5 pseudovowels up front.
 
   Given a set of *n* pseudovowels, the program can check
   during the search that these pseudovowels have not been
@@ -84,33 +81,10 @@ Several kinds of pruning are applied this search.
   the remaining words. Thus, *w* can be omitted from the
   search.
 
-  There remain a bunch of possibilities for improving
-  pseudovowel pruning. The obvious thing is to try to find
-  smaller pseudovowel sets through more clever search: a
-  smaller set will generally mean more pruning, since the
-  limit will be hit sooner.
-
-  A smaller set of pseudovowels might be available once
-  enough letters are eliminated, making it possible to use a
-  position-specific set of pseudovowels to increase
-  pruning. However, my tests of this could not make the
-  per-letter-group pseudovowel calculation cheap enough to
-  pay for itself.
-
-* *Vowel Pruning:* Given a flag, the algorithm will also
-  pseudovowel prune against the standard vowels
-  "aeiouwy". This is not on by default, since it's sort of
-  "cheating": it uses expert knowledge that vowels exist.
-
-  Ideally, the program would find the standard vowels
-  itself. However, that seems hard to do; it might also be
-  computationally expensive compared to the tiny search that
-  is ultimately performed.
-
-  Pruning against the calculated pseudovowels is done even
-  when vowel pruning is enabled. The two turn out to be
-  synergistic, suggesting that multiple sets of pseudovowels
-  might be a thing.
+  This version of the program finds the standard vowels
+  "aeiouyw" itself and uses them as pseudovowels. This is
+  "fair" because the standard vowels are being discovered by
+  the program rather than using expert knowledge.
 
 The resulting algorithm looks something like this:
 
@@ -127,8 +101,6 @@ The resulting algorithm looks something like this:
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**if**&nbsp;*w*&nbsp;contains&nbsp;*seen*&nbsp;letters  
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue  
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**if**&nbsp;pseudovowel&nbsp;pruning&nbsp;eliminates&nbsp;*w*  
-> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue  
-> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**if**&nbsp;vowel&nbsp;pruning&nbsp;is&nbsp;enabled&nbsp;and&nbsp;eliminates&nbsp;*w*  
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue  
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;search&nbsp;at&nbsp;position&nbsp;*i*&nbsp;+&nbsp;1,&nbsp;depth&nbsp;*d*&nbsp;+&nbsp;1,&nbsp;*skipped*,  
 > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with&nbsp;updated&nbsp;*seen*&nbsp;and&nbsp;*soln*  
@@ -186,19 +158,10 @@ The comment thread on this
 the source of fastest solutions right now: I'm about 2.5×
 faster than the next-best reported solution.
 
-To "cheat" you can take advantage of "expert" knowledge
-about the existence of vowels. Using the `--prune-vowels`
-flag takes the time to about 7ms sequential, which is faster
-than the parallel solutions due to overhead.
-
 Timing shows that much of the runtime of the single-threaded
 version is spent in the solver proper: about 2ms for init,
 7ms for the solver, 2ms of unknown overhead. Thus there's
-still some room for improvement by solver speedup. Vowel
-pruning speeds up the solver by about 4ms, at which point
-there's not much room for improvement. Better pseudo-vowel
-pruning might mostly exhaust the solver speedup
-possibilities for this approach.
+still some room for improvement by solver speedup.
 
 For the multi-threaded versions the solver time appears to
 be almost bounded by thread overhead: much larger
@@ -305,8 +268,6 @@ So for example
 ```
 cargo run --release -- --solver rayon words-nyt-wordle.txt
 ```
-
-To turn on vowel pruning, add the `--prune-vowels` flag.
 
 To get a pseudovowel list and node count instrumentation,
 compile with feature `instrument`, for example
