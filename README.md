@@ -15,6 +15,10 @@ this solution inspired me to create my own solution in Rust;
 specifically, I started by responding to this
 [Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
+This program currently solves the problem in about 8ms for
+me. See the [Performance](#performance) section below for
+much more information.
+
 ## Algorithm
 
 My approach is "brute-force" state-space search, as is the
@@ -139,9 +143,7 @@ below for specifics.
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 11ms single-threaded on my Ryzen 9 3900X desktop.
-Using `rayon` parallelism, or custom scoped-thread
-parallelism the solution time is about 10ms.
+in about 8ms single-threaded on my Ryzen 9 3900X desktop.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
@@ -150,13 +152,8 @@ faster than the next-best reported solution.
 
 Timing shows that much of the runtime of the single-threaded
 version is spent in the solver proper: about 2ms for init,
-7ms for the solver, 2ms of unknown overhead. Thus there's
-still some room for improvement by solver speedup.
-
-For the multi-threaded versions the solver time appears to
-be almost bounded by thread overhead: much larger
-dictionaries would be needed to exercise many threads
-sufficiently.
+4ms for the solver, 2ms of unknown overhead. This leaves
+little room for improvement by solver speedup.
 
 The `main` branch code uses `std::fs::read_to_string()`
 followed by line splitting of the string to read the
@@ -175,6 +172,12 @@ already-rapid solver time.
 The branch `no_std` in this repo allows building a `no_std`
 version of the program. It is not faster than the `std`
 version, but was sure more work to produce.
+
+The branch `parallelized` in this repo includes both a
+`rayon`-parallelized and custom scoped-thread-parallelized
+version of the program. These provided less than a
+millisecond of speedup, and thus were removed to simplify
+the program.
 
 When building for best performance, you may want to build a
 statically-linked binary for more reproducible best times.
@@ -199,13 +202,20 @@ it's unlikely that further tuning of the existing approach
 can make this code dramatically quicker: a whole new solver
 algorithm would be needed.
 
-In terms of overheads, one could cheat massively by
-compiling the pre-digested dictionaries into the program to
-save a millisecond or two, but ugh.  I tried going to
-`no_std` to get rid of the 2-3ms of startup overhead,
-thinking it was due to Rust startup This was a massive
-uglification of the code, and produced no noticeable
-speedup.
+In terms of overheads, the remaining possibilites are ugly.
+
+* One could cheat massively by
+  compiling the pre-digested dictionaries into the program to
+  save a millisecond or two, but ugh.
+
+* I tried going to `no_std` to get rid of the 2-3ms of
+  startup overhead, thinking it was due to Rust startup This
+  was a massive uglification of the code, and produced no
+  noticeable speedup.
+
+* I used parallelism for the longest time. As the program
+  got faster, the speedups got microscopic. At this point we
+  are probably limited by data access rather than CPU.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
@@ -237,30 +247,8 @@ cargo build --release
 Invoke the program with a list of the dictionary files to be
 read. Dictionary files should consist of ASCII lowercase
 words, one per line. The easy invocation is
-
 ```
 cargo run --release words-nyt-wordle.txt
-```
-
-You can specify a solver to use with a command-line
-argument `--solver`.
-
-* `--solver sequential`: This will get the sequential
-  (single-threaded) solver, which is also the default.  It
-  may be slightly slower than the multi-threaded ones.
-
-* `--solver scoped-threads`: This will use the `scoped-threads`
-  multi-threaded solver, which spawns a thread per word for
-  the top-level words in the search.
-
-* `--solver rayon`: This will use the `rayon` multi-threaded
-  solver, which has similar performance to
-  `scoped-threads` except for slightly more startup
-  overhead.
-
-So for example
-```
-cargo run --release -- --solver rayon words-nyt-wordle.txt
 ```
 
 To get a pseudovowel list and node count instrumentation,

@@ -7,11 +7,8 @@
 //! difficulty: number of words containing the letter is a
 //! difficulty proxy, with more words being easier.
 //!
-//! A pruning trick is used to shorten the number of words
-//! examined for "easy" letters, by noting that all but one
-//! of the previous letters must be used by the time you get
-//! to a new letter. (All-but-one because you may have
-//! skipped one because 25 of 26 letters will be used.)
+//! See this crate's `README` for a detailed description
+//! of the algorithm and its implementation.
 
 use std::collections::HashMap as Map;
 
@@ -363,9 +360,6 @@ fn solvify(
     }
 }
 
-/// Type of solver functions.
-type Solver = fn(&LetterSpace) -> Vec<Solution>;
-
 /// Stub to cleanly sequentially invoke `solvify()` and
 /// return its solutions.
 fn solve_sequential(space: &LetterSpace) -> Vec<Solution> {
@@ -375,148 +369,19 @@ fn solve_sequential(space: &LetterSpace) -> Vec<Solution> {
     solns
 }
 
-/// Stub to invoke `solvify()` using top-level parallelism
-/// via `rayon` and return its solutions.
-fn solve_rayon(space: &LetterSpace) -> Vec<Solution> {
-    use rayon::prelude::*;
-
-    // We will be parallelising over the first group.
-    let g = &space.groups[0];
-    // Gross hack to handle the skip case at the base level
-    // in parallel with the other cases.
-    let mut ws = g.words.clone();
-    ws.push(0);
-    #[cfg(feature = "instrument")]
-    NODES[0].store(1, Release);
-
-    // Run the parallel loop.
-    ws.as_slice()
-        .into_par_iter()
-        .map(|&w| {
-            let mut partial = [0; 5];
-            let mut solns = Vec::new();
-            if w != 0 {
-                partial[0] = w;
-                solvify(space, &mut partial, &mut solns, 1, 1, w, false);
-            } else {
-                // Letter skip case.
-                solvify(space, &mut partial, &mut solns, 1, 0, 0, true);
-            }
-            solns
-        })
-        .reduce(Vec::new, |mut solns1, solns2| {
-            solns1.extend(solns2);
-            solns1
-        })
-}
-
-/// Stub to invoke `solvify()` using top-level parallelism
-/// via scoped threads and return its solutions.
-fn solve_scoped_threads(space: &LetterSpace) -> Vec<Solution> {
-    use std::thread::{scope, ScopedJoinHandle};
-
-    // We will be parallelising over the first group.
-    let g = &space.groups[0];
-    // Gross hack to handle the skip case at the base level
-    // in parallel with the other cases.
-    let mut ws = g.words.clone();
-    ws.push(0);
-    #[cfg(feature = "instrument")]
-    NODES[0].store(1, Release);
-
-    // Run the parallel loop.
-    scope(move |s| {
-        // XXX The collect() at the end here does not seem to me
-        // to be needless. I want to ensure that I spawn all the
-        // threads before I wait for any of them. Spawning
-        // a thread and then joining that thread sequentializes
-        // the computation, I think maybe?
-        #[allow(clippy::needless_collect)]
-        let handles: Vec<ScopedJoinHandle<Vec<Solution>>> = ws
-            .into_iter()
-            .map(move |w| {
-                s.spawn(move || {
-                    let mut partial = [0; 5];
-                    let mut solns = Vec::new();
-                    if w != 0 {
-                        partial[0] = w;
-                        solvify(space, &mut partial, &mut solns, 1, 1, w, false);
-                    } else {
-                        // Letter skip case.
-                        solvify(space, &mut partial, &mut solns, 1, 0, 0, true);
-                    }
-                    solns
-                })
-            })
-            .collect();
-
-        handles.into_iter().fold(Vec::new(), |mut solns, handle| {
-            let soln = handle.join().unwrap();
-            solns.extend(soln);
-            solns
-        })
-    })
-}
-
-/// Arguments.
-#[derive(Default)]
-struct WArgs {
-    solver: Option<String>,
-    dicts: Vec<String>,
-}
-
-/// Process arguments. Using a crate is too expensive.
-/// XXX String errors are gross but convenient.
-fn parse_args() -> Result<WArgs, String> {
-    let mut result: WArgs = WArgs::default();
-    let mut args = std::env::args();
-    let _ = args.next().unwrap();
-    while let Some(arg) = args.next() {
-        match &*arg {
-            "--solver" => {
-                if let Some(solver) = args.next() {
-                    result.solver = Some(solver);
-                } else {
-                    return Err("missing solver".to_string());
-                }
-            }
-            _ => {
-                let mut dicts = vec![arg];
-                dicts.extend(args.collect::<Vec<String>>());
-                result.dicts = dicts;
-                return Ok(result);
-            }
-        }
-    }
-    Err("missing dicts".to_string())
-}
-
 /// Solve a Wordle5 problem using dictionaries specified on
 /// the command line. Print each solution found.
 fn main() {
-    // Process arguments.
-    let args = parse_args().unwrap_or_else(|e| {
-        eprintln!("invalid arguments: {e}");
-        std::process::exit(1);
-    });
-    let mut solver: Solver = solve_sequential;
-    if let Some(target) = args.solver {
-        match &*target {
-            "scoped-threads" => solver = solve_scoped_threads,
-            "sequential" => solver = solve_sequential,
-            "rayon" => solver = solve_rayon,
-            s => {
-                println!("{s}: unknown solver");
-                std::process::exit(1);
-            }
-        }
-    }
-
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();
 
     // Build supporting data.
-    let dict = assemble_dicts(&args.dicts);
+    let dicts: Vec<String> = std::env::args().skip(1).collect();
+    if dicts.is_empty() {
+        eprintln!("no dictionaries");
+        std::process::exit(1);
+    }
+    let dict = assemble_dicts(&dicts);
     let ids: Vec<LetterSet> = dict.keys().copied().collect();
     let space = make_letter_space(&ids);
 
@@ -526,7 +391,7 @@ fn main() {
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();
 
-    let solve = solver(&space);
+    let solve = solve_sequential(&space);
 
     #[cfg(feature = "timing")]
     println!("solver: {:?}", timer.elapsed());
