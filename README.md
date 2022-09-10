@@ -199,6 +199,10 @@ target-cpu=native"`, although it doesn't make a difference
 for me. Note that you definitely want to time the binary:
 don't use `cargo run` when timing as it adds major overhead.
 
+I've tried
+[profile-guided optimization](https://doc.rust-lang.org/rustc/profile-guided-optimization.html),
+but it doesn't seem to help.
+
 To see node counts from the solver, build with the
 `instrument` feature. This will display node counts at each
 search tree depth as well as a total.
