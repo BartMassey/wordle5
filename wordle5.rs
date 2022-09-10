@@ -18,7 +18,7 @@ use std::collections::HashMap;
 #[cfg(feature = "instrument")]
 mod instrument {
     pub use once_cell::sync::Lazy;
-    pub use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    pub use std::sync::atomic::{AtomicUsize, Ordering::AcqRel};
 
     pub static NODES: Lazy<[AtomicUsize; 6]> =
         Lazy::new(|| std::array::from_fn(|_| AtomicUsize::new(0)));
@@ -31,7 +31,7 @@ use howlong::HighResolutionTimer;
 
 use std::sync::atomic::{
     AtomicBool,
-    Ordering::{Acquire, Release},
+    Ordering::{Acquire, Relaxed, Release},
 };
 
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
@@ -177,11 +177,15 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
             .filter(|&&word| word & (1 << letter) != 0)
             .copied()
             .collect();
-        groups.push(LetterGroup { letter, words, pseudovowels: 0 });
+        groups.push(LetterGroup {
+            letter,
+            words,
+            pseudovowels: 0,
+        });
     }
 
     // Sort the letter groups by increasing length of word list.
-    groups.sort_unstable_by_key(|LetterGroup{ words, .. }| words.len());
+    groups.sort_unstable_by_key(|LetterGroup { words, .. }| words.len());
 
     // Filter each letter group using the idea that only
     // words that contain at most one of the previously-used
@@ -317,7 +321,7 @@ fn solvify(
     skipped: bool,
 ) {
     #[cfg(feature = "instrument")]
-    NODES[count].fetch_add(1, SeqCst);
+    NODES[count].fetch_add(1, AcqRel);
 
     // If five words have been found, that's a
     // solution. Save it and end this function invocation.
@@ -346,7 +350,7 @@ fn solvify(
 
     // Try extending the current solution using each word in
     // the current `LetterGroup`.
-    let prune_vowels = PRUNE_VOWELS.load(Acquire);
+    let prune_vowels = PRUNE_VOWELS.load(Relaxed);
     let pseudovowels = groups[posn].pseudovowels;
     let npseudovowels = pseudovowels.count_ones() as usize;
     for &word in &groups[posn].words {
@@ -373,7 +377,15 @@ fn solvify(
 
         // Found a partial solution.
         cur[count] = word;
-        solvify(groups, cur, solns, posn + 1, count + 1, seen | word, skipped);
+        solvify(
+            groups,
+            cur,
+            solns,
+            posn + 1,
+            count + 1,
+            seen | word,
+            skipped,
+        );
     }
 
     // If possible, try extending the current solution by
@@ -408,7 +420,7 @@ fn solve_rayon(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut ws = g.words.clone();
     ws.push(0);
     #[cfg(feature = "instrument")]
-    NODES[0].store(1, SeqCst);
+    NODES[0].store(1, Release);
 
     // Run the parallel loop.
     ws.as_slice()
@@ -443,7 +455,7 @@ fn solve_scoped_threads(groups: &[LetterGroup]) -> Vec<Solution> {
     let mut ws = g.words.clone();
     ws.push(0);
     #[cfg(feature = "instrument")]
-    NODES[0].store(1, SeqCst);
+    NODES[0].store(1, Release);
 
     // Run the parallel loop.
     scope(move |s| {
@@ -566,10 +578,10 @@ fn main() {
 
     #[cfg(feature = "instrument")]
     {
-        let total: usize = NODES.iter().map(|c| c.load(SeqCst)).sum();
+        let total: usize = NODES.iter().map(|c| c.load(Acquire)).sum();
         println!("nodes: {total}");
         for (depth, count) in NODES.iter().enumerate() {
-            println!("    {depth}: {}", count.load(SeqCst));
+            println!("    {depth}: {}", count.load(Acquire));
         }
     }
 }
