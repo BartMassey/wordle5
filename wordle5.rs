@@ -13,7 +13,7 @@
 //! to a new letter. (All-but-one because you may have
 //! skipped one because 25 of 26 letters will be used.)
 
-use std::collections::HashMap;
+use std::collections::HashMap as Map;
 
 #[cfg(feature = "instrument")]
 mod instrument {
@@ -38,6 +38,17 @@ use std::sync::atomic::{
 /// representing the presence or absence of 'a', bit 1 'b',
 /// and so forth up to bit 25 as 'z'.
 type LetterSet = u32;
+
+#[cfg(feature = "instrument")]
+fn letterset_string(cs: LetterSet) -> String {
+    let mut result = String::with_capacity(26);
+    for i in 0..26 {
+        if cs & (1 << i) != 0 {
+            result.push(char::try_from('a' as u32 + i).unwrap());
+        }
+    }
+    result
+}
 
 /// Type of characters, encoded with 0 as 'a', 1 as 'b' and
 /// so forth up to 25 as 'z'.
@@ -80,14 +91,14 @@ fn five_letter(word: &str) -> Option<(LetterSet, String)> {
 /// line, and combine their contents to produce a list of
 /// five-letter words, each containing five unique letters,
 /// and collectively containing only unique `LetterSet`s.
-/// This list is returned as a `HashMap` from each word's
+/// This list is returned as a map from each word's
 /// `LetterSet` to its owned `String` representation.
 ///
 /// `LetterSets` representing sets of of anagrammatic words
 /// have a slash-separated `String` representation: for
 /// example `"pots/stop/tops/post"`.
-fn assemble_dicts(dicts: &[String]) -> HashMap<LetterSet, String> {
-    let mut dict: HashMap<LetterSet, String> = HashMap::new();
+fn assemble_dicts(dicts: &[String]) -> Map<LetterSet, String> {
+    let mut dict: Map<LetterSet, String> = Map::new();
 
     // Process each specified dictionary in turn.
     for d in dicts {
@@ -205,50 +216,35 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
         }
     }
 
-    // Return pseudovowels for the given remaining letter groups,
-    // or 0 if no pseudovowels are found.
-    let find_pseudovowels = |priority_letters: LetterSet| {
-        for g in &groups[1..] {
-            for &w in &g.words {
-                if priority_letters & w == 0 {
-                    return 0;
+    // Calculate global pseudovowels or 0 if no pseudovowels are found.
+    let find_pseudovowels = || {
+        let check_pseudovowels = |letters| {
+            for &w in words {
+                if letters & w == 0 {
+                    return false;
                 }
             }
-        }
-        priority_letters
-    };
+            true
+        };
 
-    // For now, we will do a cheap computation by just
-    // choosing the globally most common letters.
-    let mut pseudovowels = 0;
-    for n in 2..25 {
-        let priority_letters: LetterSet = groups
-            .iter()
-            .rev()
-            .take(n)
-            .map(|g| 1 << g.letter)
-            .fold(0, |cs, c| cs | c);
-        let pvs = find_pseudovowels(priority_letters);
-        if pvs != 0 {
-            pseudovowels = pvs;
-            break;
-        }
-    }
-
-    #[cfg(feature = "instrument")]
-    if pseudovowels != 0 {
-        print!("pseudovowels: ");
-        for i in 0..26 {
-            if pseudovowels & (1 << i) != 0 {
-                print!("{}", char::try_from('a' as u32 + i).unwrap());
+        // Calculate pseudovowels.
+        let mut priority_letters = 0;
+        for g in groups.iter().rev() {
+            let c = 1 << g.letter;
+            priority_letters |= c;
+            if check_pseudovowels(priority_letters) {
+                return priority_letters;
             }
         }
-        println!();
-    } else {
-        println!("no pseudovowels");
-    }
 
-    // Calculate pseudo-vowels.
+        // No pseudovowels were identified.
+        0
+    };
+    let pseudovowels = find_pseudovowels();
+    #[cfg(feature = "instrument")]
+    println!("pseudovowels: {}", letterset_string(pseudovowels));
+
+    // Set pseudovowels.
     for g in &mut groups {
         g.pseudovowels = pseudovowels;
     }

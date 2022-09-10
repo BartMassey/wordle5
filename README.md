@@ -69,6 +69,13 @@ Several kinds of pruning are applied this search.
   Wordle dictionary, the program uses pseudovowels
   "aeilnorsu".
 
+  Having a set of *n* pseudovowels for a dictionary allows
+  filtering out words that contain more than
+  *n*&nbsp;-&nbsp;5 pseudovowels up front. This is not
+  useful for the currently-calculated pseudovowels with 9
+  letters. It is useful for the seven-letter standard vowels
+  used during vowel pruning as discussed below.
+
   Given a set of *n* pseudovowels, the program can check
   during the search that these pseudovowels have not been
   "overused". If there are fewer than *n - (5 - d)*
@@ -86,9 +93,9 @@ Several kinds of pruning are applied this search.
   A smaller set of pseudovowels might be available once
   enough letters are eliminated, making it possible to use a
   position-specific set of pseudovowels to increase
-  pruning. However, preliminary tests have not yet confirmed
-  this, perhaps because the current pseudovowel calculation
-  is naïve.
+  pruning. However, my tests of this could not make the
+  per-letter-group pseudovowel calculation cheap enough to
+  pay for itself.
 
 * *Vowel Pruning:* Given a flag, the algorithm will also
   pseudovowel prune against the standard vowels
