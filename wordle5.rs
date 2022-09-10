@@ -218,27 +218,63 @@ fn make_letter_groups(words: &[LetterSet]) -> Vec<LetterGroup> {
 
     // Calculate global pseudovowels or 0 if no pseudovowels are found.
     let find_pseudovowels = || {
-        let check_pseudovowels = |letters| {
+        let mut candidate_words = words.to_vec();
+
+        // Find the most frequent letter in the current list.
+        let next_letter = |words: &[LetterSet]| {
+            (0..26)
+                .map(|l| {
+                    let count = words
+                        .iter()
+                        .filter(|&&w| w & (1 << l) != 0)
+                        .count();
+                    (count, l)
+                })
+                .max()
+                .unwrap()
+                .1
+        };
+
+        // Calculate pseudovowels.
+        let mut pv_set = 0;
+        let mut pv_letters = Vec::with_capacity(26);
+        while !candidate_words.is_empty() {
+            let letter = next_letter(&candidate_words);
+            pv_letters.push(letter);
+            let c = 1 << letter;
+            pv_set |= c;
+            candidate_words.retain(|&w| w & c == 0);
+        }
+
+        // Check a set of pseudovowels for validity.
+        let is_pseudovowels = |pseudovowels| {
             for &w in words {
-                if letters & w == 0 {
+                if w & pseudovowels == 0 {
                     return false;
                 }
             }
             true
         };
 
-        // Calculate pseudovowels.
-        let mut priority_letters = 0;
-        for g in groups.iter().rev() {
-            let c = 1 << g.letter;
-            priority_letters |= c;
-            if check_pseudovowels(priority_letters) {
-                return priority_letters;
+        // Try to remove an extra element from pseudovowels.
+        let reduce_pv = |pv_letters: &[LetterSet], pv_set: LetterSet| {
+            for &l in pv_letters.iter() {
+                let pv_reduced = pv_set & !(1 << l);
+                if is_pseudovowels(pv_reduced) {
+                    return Some(l);
+                }
             }
+            None
+        };
+
+        // Prune pseudovowels greedily until no further prune works.
+        pv_letters.reverse();
+        while let Some(letter) = reduce_pv(&pv_letters, pv_set) {
+            pv_letters.retain(|&l| l != letter);
+            pv_set &= !(1 << letter);
         }
 
-        // No pseudovowels were identified.
-        0
+        pv_set
     };
     let pseudovowels = find_pseudovowels();
     #[cfg(feature = "instrument")]
