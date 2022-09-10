@@ -288,7 +288,10 @@ fn make_letter_space(dwords: &[LetterSet]) -> LetterSpace {
     #[cfg(feature = "instrument")]
     println!("pseudovowels: {}", letterset_string(pseudovowels));
 
-    let global_pseudovowels = find_pseudovowels(true);
+    let mut global_pseudovowels = find_pseudovowels(true);
+    if global_pseudovowels == pseudovowels {
+        global_pseudovowels = 0;
+    }
     #[cfg(feature = "instrument")]
     println!("global pseudovowels: {}", letterset_string(global_pseudovowels));
 
