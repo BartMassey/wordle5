@@ -15,9 +15,11 @@ this solution inspired me to create my own solution in Rust;
 specifically, I started by responding to this
 [Reddit thread](https://www.reddit.com/r/learnrust/comments/x5ykmt/comment/in7l45g/).
 
-This program currently solves the problem in about 6ms for
-me. See the [Performance](#performance) section below for
-much more information.
+Parker's original solution took about a month: over 2.7
+million seconds.  This program currently solves the problem
+in about 6ms for me, more than 8.5 orders of magnitude
+faster. See the [Performance](#performance) section below
+for much more information.
 
 ## Algorithm
 
