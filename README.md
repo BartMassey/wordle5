@@ -131,16 +131,6 @@ modern processors have finally incorporated the damn thing,
 and that Rust's `count_ones()` intrinsic provides easy
 access to it.
 
-Some global variables are used to reduce the size of the
-search argument list: it turns out having too many
-parameters to the search function slows down the code
-noticeably due to parameter passing.  Because threaded
-versions of this code, global variables use Rust's `Atomic`
-types to guarantee correct synchronization. It is possible
-that using `unsafe` code in the single-threaded case to
-access non-atomic global variables could make things a bit
-faster, but it hardly seems worth going there.
-
 A bunch of stuff that might either slow things down or just
 make them less convenient has been hidden behind Rust
 `feature` gates and must be turned on at compile time. See
@@ -203,15 +193,19 @@ To get times for initialization and solver, build with the
 each of these pieces
 
 At this point, the performance is really fragile; small
-tweaks make hard-to-understand differences. I think it's
-unlikely that further tuning of the existing approach can
-make this code dramatically quicker: a whole new solver
-algorithm would be needed. In terms of overheads, one could
-cheat massively by compiling the pre-digested dictionaries
-into the program to save a millisecond or two; more
-troublingly, one could go `no_std` to get rid of the 2-3ms
-of Rust startup overhead, although this would be a massive
-uglification of the code.
+tweaks make hard-to-understand differences. Further, setup
+time and search time are looking pretty balanced. I think
+it's unlikely that further tuning of the existing approach
+can make this code dramatically quicker: a whole new solver
+algorithm would be needed.
+
+In terms of overheads, one could cheat massively by
+compiling the pre-digested dictionaries into the program to
+save a millisecond or two, but ugh.  I tried going to
+`no_std` to get rid of the 2-3ms of startup overhead,
+thinking it was due to Rust startup This was a massive
+uglification of the code, and produced no noticeable
+speedup.
 
 I've tried to make my solution clear and readable. Please
 see the Rustdoc and source code for details.
