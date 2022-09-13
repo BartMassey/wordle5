@@ -1,16 +1,17 @@
 12947 words
 5176 translations
-waqfs jumby vozhd glent prick 
+pseudovowels: easoirlun
 waqfs jumby vozhd kreng clipt 
 waqfs jumby vozhd pling treck 
+waqfs jumby vozhd glent prick 
 waqfs jumpy vozhd brick glent 
 waqfs jumpy vozhd bling treck 
+waqfs bemix vozhd grypt clunk 
 waqfs cimex vozhd blunk grypt 
 waqfs cylix/xylic vozhd brung kempt 
-waqfs bemix vozhd grypt clunk 
 fjord vibex waltz gymps chunk 
 fjord vibex waltz gucks nymph 
 
-real	0m0.017s
-user	0m0.016s
+real	0m0.012s
+user	0m0.012s
 sys	0m0.000s

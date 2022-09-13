@@ -30,12 +30,13 @@ fn main() {
 
     let mut translations: HashMap<u32, String> =
         HashMap::with_capacity(words.len());
-    let mut dwords = Vec::with_capacity(words.len());
+    let mut wsets = Vec::with_capacity(words.len());
     for w in words {
         let b = bits(w);
         if b.count_ones() < 5 {
             continue;
         }
+
         // Deal with anagrams.
         if let Some(tw) = translations.get_mut(&b) {
             tw.push('/');
@@ -43,7 +44,7 @@ fn main() {
             continue;
         }
         translations.insert(b, w.to_string());
-        dwords.push(b);
+        wsets.push(b);
     }
     println!("{} translations", translations.len());
 
@@ -62,10 +63,60 @@ fn main() {
     letters.sort_unstable();
     let letters: Vec<u32> = letters.into_iter().map(|(_, l)| l).collect();
 
+
+    let make_pseudovowels_lazy = || {
+        let make = || {
+            let ls = letters.iter().rev().cloned();
+            let mut ws: Vec<u32> = wsets.to_vec();
+            let mut pvs = 0;
+            let mut pvls = Vec::new();
+            for l in ls {
+                pvls.push(l);
+                let x = 1 << l;
+                pvs |= x;
+                ws.retain(|&w| (w & x) == 0);
+                if ws.is_empty() {
+                    return (pvs, pvls);
+                }
+            }
+            panic!("ran out of letters for pseudovowels");
+        };
+
+        let reduce = |pvs: u32, pvls: &mut Vec<u32>| {
+            for (i, l) in pvls.clone().into_iter().enumerate().rev() {
+                let new_pvs = pvs & !(1 << l);
+                if wsets.iter().all(|&w| (w & new_pvs) != 0) {
+                    pvls.remove(i);
+                    return new_pvs;
+                }
+            }
+            pvs
+        };
+
+        let (mut pvs, mut pvls) = make();
+        loop {
+            let new_pvs = reduce(pvs, &mut pvls);
+            if new_pvs == pvs {
+                break;
+            }
+            pvs = new_pvs;
+        }
+        let pvls: String = pvls
+            .into_iter()
+            .map(|l| char::try_from(l + 'a' as u32).unwrap())
+            .collect();
+        println!("pseudovowels: {pvls}");
+        pvs
+    };
+
+    let pvs_lazy = make_pseudovowels_lazy();
+
+    #[allow(clippy::too_many_arguments)]
     fn solve(
         translations: &HashMap<u32, String>,
         lwords: &HashMap<u32, Vec<u32>>,
         letters: &[u32],
+        pvs_lazy: u32,
         i: usize,
         ws: &mut Vec<u32>,
         seen: u32,
@@ -73,9 +124,6 @@ fn main() {
     ) {
         let d = ws.len();
         if d == 5 {
-            if seen.count_ones() < 25 {
-                return;
-            }
             for w in ws.iter() {
                 print!("{} ", translations[w]);
             }
@@ -83,13 +131,20 @@ fn main() {
             return;
         }
 
+        let npvs_lazy = pvs_lazy.count_ones();
         for (j, &l) in letters[i..].iter().enumerate() {
-            if seen & (1 << l) != 0 {
+            if (seen & (1 << l)) != 0 {
                 continue;
             }
 
             for &w in lwords[&l].iter() {
-                if seen & w != 0 {
+                if (w & seen) != 0 {
+                    continue;
+                }
+
+                let pvl = (w | seen) & pvs_lazy;
+                let npvl = pvl.count_ones();
+                if npvl + (4 - d as u32) > npvs_lazy {
                     continue;
                 }
 
@@ -98,6 +153,7 @@ fn main() {
                     translations,
                     lwords,
                     letters,
+                    pvs_lazy,
                     i + j + 1,
                     ws,
                     w | seen,
@@ -111,15 +167,26 @@ fn main() {
                     translations,
                     lwords,
                     letters,
+                    pvs_lazy,
                     i + j + 1,
                     ws,
                     seen,
                     true,
                 );
             }
+
             return;
         }
     }
 
-    solve(&translations, &lwords, &letters, 0, &mut vec![], 0, false);
+    solve(
+        &translations,
+        &lwords,
+        &letters,
+        pvs_lazy,
+        0,
+        &mut vec![],
+        0,
+        false,
+    );
 }

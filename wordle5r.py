@@ -34,11 +34,49 @@ for l in range(26):
 
 letters = [l for _, l in sorted([(len(lwords[l]), l) for l in range(26)])]
 
+def make_pseudovowels_lazy():
+    def make():
+        ls = reversed(letters)
+        ws = list(wsets)
+        pvs = 0
+        pvls = []
+        for l in ls:
+            pvls.append(l)
+            x = 1 << l
+            pvs |= x
+            ws = [w for w in ws if (w & x) == 0]
+            if not ws:
+                return pvs, pvls
+        assert False, "ran out of letters for pseudovowels"
+
+    def reduce(pvs, pvls):
+        def ok_reduce(new_pvs):
+            for w in wsets:
+                if (w & new_pvs) == 0:
+                    return False
+            return True
+
+        for i, l in reversed(list(enumerate(pvls))):
+            new_pvs = pvs & ~(1 << l)
+            if ok_reduce(new_pvs):
+                del pvls[i]
+                return new_pvs
+        return pvs
+
+    pvs, pvls = make()
+    while True:
+        new_pvs = reduce(pvs, pvls)
+        if new_pvs == pvs:
+            break
+        pvs = new_pvs
+    print("pseudovowels:", ''.join([chr(l + ord('a')) for l in pvls]))
+    return pvs
+pvs_lazy = make_pseudovowels_lazy()
+npvs_lazy = pvs_lazy.bit_count() 
+
 def solve(i, ws, seen, skipped):
     d = len(ws)
     if d == 5:
-        if seen.bit_count() < 25:
-            return
         for w in ws:
             print(f"{translations[w]} ", end = "")
         print()
@@ -49,7 +87,12 @@ def solve(i, ws, seen, skipped):
             continue
 
         for w in lwords[l]:
-            if seen & w:
+            if w & seen:
+                continue
+
+            pvl = (w | seen) & pvs_lazy
+            npvl = pvl.bit_count()
+            if npvl + (4 - d) > npvs_lazy:
                 continue
 
             ws.append(w)
