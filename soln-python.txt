@@ -1,16 +1,16 @@
 12947 words
 5176 translations
-bemix clunk grypt vozhd waqfs 
-bling jumpy treck vozhd waqfs 
-blunk cimex grypt vozhd waqfs 
-brick glent jumpy vozhd waqfs 
-brung cylix/xylic kempt vozhd waqfs 
-chunk fjord gymps vibex waltz 
-clipt jumby kreng vozhd waqfs 
-fjord gucks nymph vibex waltz 
-glent jumby prick vozhd waqfs 
-jumby pling treck vozhd waqfs 
+waqfs jumby vozhd glent prick 
+waqfs jumby vozhd kreng clipt 
+waqfs jumby vozhd pling treck 
+waqfs jumpy vozhd bling treck 
+waqfs jumpy vozhd brick glent 
+waqfs bemix vozhd grypt clunk 
+waqfs cimex vozhd blunk grypt 
+waqfs cylix/xylic vozhd brung kempt 
+fjord vibex waltz gucks nymph 
+fjord vibex waltz gymps chunk 
 
-real	67m42.821s
-user	67m42.582s
-sys	0m0.092s
+real	0m1.079s
+user	0m1.071s
+sys	0m0.008s

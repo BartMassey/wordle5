@@ -47,12 +47,31 @@ fn main() {
     }
     println!("{} translations", translations.len());
 
+    let mut lwords: Vec<(u32, Vec<u32>)> = Vec::with_capacity(26);
+    for l in 0..26 {
+        let ws: Vec<u32> = translations
+            .keys()
+            .copied()
+            .filter(|&k| k & (1 << l) != 0)
+            .collect();
+        lwords.push((l, ws));
+    }
+    lwords.sort_unstable_by_key(|(_, ws)| ws.len());
+
+    let mut seen = 0;
+    lwords.retain_mut(|(l, ws)| {
+        ws.retain(|w| (w & seen).count_ones() <= 1);
+        seen |= 1 << *l;
+        !ws.is_empty()
+    });
+
     fn solve(
         translations: &HashMap<u32, String>,
-        words: &Vec<u32>,
+        lwords: &[(u32, Vec<u32>)],
         i: usize,
         ws: &mut Vec<u32>,
         seen: u32,
+        skipped: bool,
     ) {
         let d = ws.len();
         if d == 5 {
@@ -60,17 +79,44 @@ fn main() {
                 print!("{} ", translations[w]);
             }
             println!();
+            return;
         }
 
-        for (j, &w) in words[i..].iter().enumerate() {
-            if seen & w != 0 {
+        for (j, (l, lws)) in lwords[i..].iter().enumerate() {
+            if seen & (1 << *l) != 0 {
                 continue;
             }
-            ws.push(w);
-            solve(translations, words, i + j + 1, ws, w | seen);
-            let _ = ws.pop();
+
+            for &w in lws.iter() {
+                if seen & w != 0 {
+                    continue;
+                }
+
+                ws.push(w);
+                solve(
+                    translations,
+                    lwords,
+                    i + j + 1,
+                    ws,
+                    w | seen,
+                    skipped,
+                );
+                let _ = ws.pop();
+            }
+
+            if !skipped {
+                solve(
+                    translations,
+                    lwords,
+                    i + j + 1,
+                    ws,
+                    seen,
+                    true,
+                );
+            }
+            return;
         }
     }
 
-    solve(&translations, &dwords, 0, &mut vec![], 0);
+    solve(&translations, &lwords, 0, &mut vec![], 0, false);
 }
