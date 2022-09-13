@@ -17,7 +17,7 @@ def bits(w):
 translations = dict()
 for w in words:
     b = bits(w)
-    if b.bit_count() < 5:
+    if b.bit_count() != 5:
         continue
     # Deal with anagrams.
     if b in translations:
@@ -27,19 +27,37 @@ for w in words:
 print(f"{len(translations)} translations")
 wsets = list(translations.keys())
 
-def solve(i, ws, seen):
+lwords = dict()
+for l in range(26):
+    words = [w for w in wsets if (1 << l) & w]
+    lwords[l] = words
+
+letters = [l for _, l in sorted([(len(lwords[l]), l) for l in range(26)])]
+
+def solve(i, ws, seen, skipped):
     d = len(ws)
     if d == 5:
+        if seen.bit_count() < 25:
+            return
         for w in ws:
             print(f"{translations[w]} ", end = "")
         print()
         return
 
-    for j, w in enumerate(wsets[i:]):
-        if seen & w:
+    for j, l in enumerate(letters[i:]):
+        if seen & (1 << l):
             continue
-        ws.append(w)
-        solve(i + j + 1, ws, w | seen)
-        ws.pop()
 
-solve(0, [], 0)
+        for w in lwords[l]:
+            if seen & w:
+                continue
+
+            ws.append(w)
+            solve(i + j + 1, ws, w | seen, skipped)
+            ws.pop()
+
+        if not skipped:
+            solve(i + j + 1, ws, seen, True)
+        return
+
+solve(0, [], 0, False)
