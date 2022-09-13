@@ -1,0 +1,8 @@
+[package]
+name = "wordle5r"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "wordle5r"
+path = "wordle5r.rs"
