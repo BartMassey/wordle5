@@ -1,0 +1,16 @@
+12947 words
+5176 translations
+bemix clunk grypt vozhd waqfs 
+bling jumpy treck vozhd waqfs 
+blunk cimex grypt vozhd waqfs 
+brick glent jumpy vozhd waqfs 
+brung cylix/xylic kempt vozhd waqfs 
+chunk fjord gymps vibex waltz 
+clipt jumby kreng vozhd waqfs 
+fjord gucks nymph vibex waltz 
+glent jumby prick vozhd waqfs 
+jumby pling treck vozhd waqfs 
+
+real	67m42.821s
+user	67m42.582s
+sys	0m0.092s
