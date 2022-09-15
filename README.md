@@ -195,6 +195,10 @@ version of the program. These provided less than a
 millisecond of speedup, and thus were removed to simplify
 the program.
 
+The branch `retro` in this repo includes both Python and
+Rust versions of various stages of the construction of
+`wordle5`, as recreated for expository purposes.
+
 When building for best performance, you may want to build a
 statically-linked binary for more reproducible best times.
 On my box I use the `x86_64-unknown-linux-musl` build target
