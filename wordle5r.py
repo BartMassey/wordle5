@@ -34,45 +34,71 @@ for l in range(26):
 
 letters = [l for _, l in sorted([(len(lwords[l]), l) for l in range(26)])]
 
-def make_pseudovowels_lazy():
-    def make():
-        ls = reversed(letters)
-        ws = list(wsets)
-        pvs = 0
-        pvls = []
-        for l in ls:
-            pvls.append(l)
-            x = 1 << l
-            pvs |= x
-            ws = [w for w in ws if (w & x) == 0]
-            if not ws:
-                return pvs, pvls
-        assert False, "ran out of letters for pseudovowels"
+def ok_reduce(new_pvs):
+    for w in wsets:
+        if (w & new_pvs) == 0:
+            return False
+    return True
 
+def make_reduce(make):
     def reduce(pvs, pvls):
-        def ok_reduce(new_pvs):
-            for w in wsets:
-                if (w & new_pvs) == 0:
-                    return False
-            return True
-
         for i, l in reversed(list(enumerate(pvls))):
             new_pvs = pvs & ~(1 << l)
             if ok_reduce(new_pvs):
                 del pvls[i]
-                return new_pvs
-        return pvs
+                return new_pvs, pvls
+        return pvs, pvls
 
     pvs, pvls = make()
     while True:
-        new_pvs = reduce(pvs, pvls)
+        new_pvs, new_pvls = reduce(pvs, pvls)
         if new_pvs == pvs:
             break
         pvs = new_pvs
-    print("pseudovowels:", ''.join([chr(l + ord('a')) for l in pvls]))
-    return pvs
-pvs_lazy = make_pseudovowels_lazy()
+        pvls = new_pvls
+    return pvs, pvls
+
+def pvls_str(pvls):
+    result = ""
+    for l in pvls:
+        result += chr(ord('a') + l)
+    return result
+
+def make_pvs_lazy():
+    ls = reversed(letters)
+    ws = list(wsets)
+    pvs = 0
+    pvls = []
+    for l in ls:
+        pvls.append(l)
+        x = 1 << l
+        pvs |= x
+        ws = [w for w in ws if (w & x) == 0]
+        if not ws:
+            return pvs, pvls
+    assert False, "ran out of letters for pseudovowels"
+
+pvs_lazy, pvls_lazy = make_reduce(make_pvs_lazy)
+print(f"pseudovowels (lazy): {pvls_str(pvls_lazy)}")
 npvs_lazy = pvs_lazy.bit_count() 
+
+def make_pvs_eager():
+    lws = list([k, list(v)] for k, v in lwords.items())
+    pvs = 0
+    pvls = []
+    while not ok_reduce(pvs):
+        l = max(lws, key = lambda l : len(l[1]))
+        pvls.append(l[0])
+        pvs |= 1 << l[0]
+        lws = [[k, list(filter(lambda w: w & pvs == 0, v))]
+               for [k, v] in lws]
+    return pvs, pvls
+
+pvs_eager, pvls_eager = make_reduce(make_pvs_eager)
+print(f"pseudovowels (lazy): {pvls_str(pvls_eager)}")
+npvs_eager = pvs_eager.bit_count() 
+
+pv_groups = ((pvs_eager, npvs_eager), (pvs_lazy, npvs_lazy))
 
 def solve(i, ws, seen, skipped):
     d = len(ws)
@@ -90,9 +116,15 @@ def solve(i, ws, seen, skipped):
             if w & seen:
                 continue
 
-            pvl = (w | seen) & pvs_lazy
-            npvl = pvl.bit_count()
-            if npvl + (4 - d) > npvs_lazy:
+            def vowel_prune():
+                for pvs, npvs in pv_groups:
+                    pvl = (w | seen) & pvs
+                    npvl = pvl.bit_count()
+                    if npvl + (4 - d) > npvs:
+                        return True
+                return False
+
+            if vowel_prune():
                 continue
 
             ws.append(w)

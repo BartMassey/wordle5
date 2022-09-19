@@ -63,25 +63,7 @@ fn main() {
     letters.sort_unstable();
     let letters: Vec<u32> = letters.into_iter().map(|(_, l)| l).collect();
 
-
-    let make_pseudovowels_lazy = || {
-        let make = || {
-            let ls = letters.iter().rev().cloned();
-            let mut ws: Vec<u32> = wsets.to_vec();
-            let mut pvs = 0;
-            let mut pvls = Vec::new();
-            for l in ls {
-                pvls.push(l);
-                let x = 1 << l;
-                pvs |= x;
-                ws.retain(|&w| (w & x) == 0);
-                if ws.is_empty() {
-                    return (pvs, pvls);
-                }
-            }
-            panic!("ran out of letters for pseudovowels");
-        };
-
+    let make_reduce = |make: &dyn Fn() -> (u32, Vec<u32>), label: &str| {
         let reduce = |pvs: u32, pvls: &mut Vec<u32>| {
             for (i, l) in pvls.clone().into_iter().enumerate().rev() {
                 let new_pvs = pvs & !(1 << l);
@@ -93,7 +75,7 @@ fn main() {
             pvs
         };
 
-        let (mut pvs, mut pvls) = make();
+        let (mut pvs, mut pvls) = (*make)();
         loop {
             let new_pvs = reduce(pvs, &mut pvls);
             if new_pvs == pvs {
@@ -105,11 +87,45 @@ fn main() {
             .into_iter()
             .map(|l| char::try_from(l + 'a' as u32).unwrap())
             .collect();
-        println!("pseudovowels: {pvls}");
+        println!("pseudovowels ({label}): {pvls}");
         pvs
     };
 
-    let pvs_lazy = make_pseudovowels_lazy();
+    let make_pvs_lazy = || {
+        let ls = letters.iter().rev().cloned();
+        let mut ws: Vec<u32> = wsets.to_vec();
+        let mut pvs = 0;
+        let mut pvls = Vec::new();
+        for l in ls {
+            pvls.push(l);
+            let x = 1 << l;
+            pvs |= x;
+            ws.retain(|&w| (w & x) == 0);
+            if ws.is_empty() {
+                return (pvs, pvls);
+            }
+        }
+        unreachable!("ran out of letters for pseudovowels");
+    };
+
+    let pvs_lazy = make_reduce(&make_pvs_lazy, "lazy");
+
+    let make_pvs_eager = || {
+        let mut lws = lwords.clone();
+        let mut pvs = 0;
+        let mut pvls = Vec::new();
+        while !wsets.iter().all(|&w| (w & pvs) != 0) {
+            let (&l, _) = lws.iter().max_by_key(|(_, v)| v.len()).unwrap();
+            pvls.push(l);
+            pvs |= 1 << l;
+            for (_, ws) in &mut lws {
+                ws.retain(|w| (w & pvs) == 0);
+            }
+        }
+        (pvs, pvls)
+    };
+
+    let _pvs_eager = make_reduce(&make_pvs_eager, "eager");
 
     #[allow(clippy::too_many_arguments)]
     fn solve(
