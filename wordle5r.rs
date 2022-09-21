@@ -30,7 +30,7 @@ fn main() {
 
     let mut translations: HashMap<u32, String> =
         HashMap::with_capacity(words.len());
-    let mut dwords = Vec::with_capacity(words.len());
+    let mut wsets = Vec::with_capacity(words.len());
     for w in words {
         let b = bits(w);
         if b.count_ones() < 5 {
@@ -43,14 +43,14 @@ fn main() {
             continue;
         }
         translations.insert(b, w.to_string());
-        dwords.push(b);
+        wsets.push(b);
     }
     println!("{} translations", translations.len());
 
     let mut lwords: Vec<(u32, Vec<u32>)> = Vec::with_capacity(26);
     for l in 0..26 {
-        let ws: Vec<u32> = translations
-            .keys()
+        let ws: Vec<u32> = wsets
+            .iter()
             .copied()
             .filter(|&k| k & (1 << l) != 0)
             .collect();
@@ -58,19 +58,26 @@ fn main() {
     }
     lwords.sort_unstable_by_key(|(_, ws)| ws.len());
 
+    let mut vowels = 0;
+    let mut vowel_letters = String::new();
+    let mut remaining = wsets.clone();
+    for (l, _) in lwords.iter().rev() {
+        let c = char::from_u32('a' as u32 + *l).unwrap();
+        vowel_letters.push(c);
+        vowels |= 1 << *l;
+        remaining.retain(|w| (w & vowels) == 0);
+        if remaining.is_empty() {
+            break;
+        }
+    }
+    println!("vowels: {vowel_letters}");
+
     let mut seen = 0;
     lwords.retain_mut(|(l, ws)| {
         ws.retain(|w| (w & seen).count_ones() <= 1);
         seen |= 1 << *l;
         !ws.is_empty()
     });
-
-    let vowel_letters = "aeiouyw";
-    let mut vowels = 0;
-    for v in vowel_letters.chars() {
-        let l = v as u32 - 'a' as u32;
-        vowels |= 1 << l;
-    }
 
     fn solve(
         translations: &HashMap<u32, String>,
@@ -90,6 +97,7 @@ fn main() {
             return;
         }
 
+        let nvowels = vowels.count_ones();
         for (j, (l, lws)) in lwords[i..].iter().enumerate() {
             if seen & (1 << *l) != 0 {
                 continue;
@@ -100,7 +108,7 @@ fn main() {
                     continue;
                 }
 
-                if 7 - (vowels & (w | seen)).count_ones() < 4 - d as u32 {
+                if nvowels - (vowels & (w | seen)).count_ones() < 4 - d as u32 {
                     continue;
                 }
 

@@ -34,6 +34,18 @@ for l in range(26):
         lwords.append((l, words))
 lwords.sort(key = lambda e: len(e[1]))
 
+vowels = 0
+vowel_letters = ""
+remaining = list(wsets)
+for l, _ in reversed(lwords):
+    vowel_letters += chr(ord('a') + l)
+    vowels |= 1 << l
+    remaining = [w for w in remaining if (w & vowels) == 0]
+    if not remaining:
+        break
+nvowels = vowels.bit_count()
+print(f"vowels: {vowel_letters}")
+
 seen = 0
 nlwords = []
 for i in range(26):
@@ -43,12 +55,6 @@ for i in range(26):
         nlwords.append((l, nws))
     seen |= 1 << l
 lwords = nlwords
-
-vowel_letters = "aeiouyw"
-vowels = 0
-for v in vowel_letters:
-    l = ord(v) - ord('a')
-    vowels |= 1 << l
 
 def solve(i, ws, seen, skipped):
     d = len(ws)
@@ -67,7 +73,7 @@ def solve(i, ws, seen, skipped):
             if seen & w:
                 continue
 
-            if 7 - (vowels & (w | seen)).bit_count() < 4 - d:
+            if nvowels - (vowels & (w | seen)).bit_count() < 4 - d:
                 continue
 
             ws.append(w)
