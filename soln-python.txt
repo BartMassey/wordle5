@@ -11,6 +11,6 @@ waqfs cylix/xylic vozhd brung kempt
 fjord vibex waltz gucks nymph 
 fjord vibex waltz gymps chunk 
 
-real	0m1.079s
-user	0m1.071s
+real	0m0.568s
+user	0m0.560s
 sys	0m0.008s

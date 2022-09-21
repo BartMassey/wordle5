@@ -65,9 +65,17 @@ fn main() {
         !ws.is_empty()
     });
 
+    let vowel_letters = "aeiouyw";
+    let mut vowels = 0;
+    for v in vowel_letters.chars() {
+        let l = v as u32 - 'a' as u32;
+        vowels |= 1 << l;
+    }
+
     fn solve(
         translations: &HashMap<u32, String>,
         lwords: &[(u32, Vec<u32>)],
+        vowels: u32,
         i: usize,
         ws: &mut Vec<u32>,
         seen: u32,
@@ -92,10 +100,15 @@ fn main() {
                     continue;
                 }
 
+                if 7 - (vowels & (w | seen)).count_ones() < 4 - d as u32 {
+                    continue;
+                }
+
                 ws.push(w);
                 solve(
                     translations,
                     lwords,
+                    vowels,
                     i + j + 1,
                     ws,
                     w | seen,
@@ -108,6 +121,7 @@ fn main() {
                 solve(
                     translations,
                     lwords,
+                    vowels,
                     i + j + 1,
                     ws,
                     seen,
@@ -118,5 +132,5 @@ fn main() {
         }
     }
 
-    solve(&translations, &lwords, 0, &mut vec![], 0, false);
+    solve(&translations, &lwords, vowels, 0, &mut vec![], 0, false);
 }

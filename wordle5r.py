@@ -44,6 +44,12 @@ for i in range(26):
     seen |= 1 << l
 lwords = nlwords
 
+vowel_letters = "aeiouyw"
+vowels = 0
+for v in vowel_letters:
+    l = ord(v) - ord('a')
+    vowels |= 1 << l
+
 def solve(i, ws, seen, skipped):
     d = len(ws)
     if d == 5:
@@ -59,6 +65,9 @@ def solve(i, ws, seen, skipped):
 
         for w in lws:
             if seen & w:
+                continue
+
+            if 7 - (vowels & (w | seen)).bit_count() < 4 - d:
                 continue
 
             ws.append(w)
