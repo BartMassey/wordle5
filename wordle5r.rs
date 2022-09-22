@@ -79,7 +79,19 @@ fn main() {
             break;
         }
     }
-    println!("vowels: {}", to_chars(&vowel_letters));
+
+    let mut gvowels = 0;
+    let mut gvowel_letters = Vec::with_capacity(26);
+    let mut glwords = lwords.clone();
+    while !glwords.is_empty() {
+        let (l, _) = glwords.iter_mut().max_by_key(|(_, ws)| ws.len()).unwrap();
+        gvowel_letters.push(*l);
+        gvowels |= 1 << *l;
+        glwords.retain_mut(|(_, ws)| {
+            ws.retain(|w| (w & gvowels) == 0);
+            !ws.is_empty()
+        });
+    }
 
     let prune = |vowel_letters: &[u32], vowels: u32| -> (Vec<u32>, u32) {
         let mut cvowels = vowels;
@@ -98,8 +110,11 @@ fn main() {
         }
         (cletters.into_iter().rev().collect(), cvowels)
     };
+
     let (vowel_letters, vowels) = prune(&vowel_letters, vowels);
-    println!("vowels (pruned): {}", to_chars(&vowel_letters));
+    println!("pseudovowels: {}", to_chars(&vowel_letters));
+    let (gvowel_letters, _gvowels) = prune(&gvowel_letters, gvowels);
+    println!("greedy pseudovowels: {}", to_chars(&gvowel_letters));
 
     let mut seen = 0;
     lwords.retain_mut(|(l, ws)| {
@@ -111,7 +126,7 @@ fn main() {
     fn solve(
         translations: &HashMap<u32, String>,
         lwords: &[(u32, Vec<u32>)],
-        vowels: u32,
+        pvowels@(vowels, gvowels): (u32, u32),
         i: usize,
         ws: &mut Vec<u32>,
         seen: u32,
@@ -127,6 +142,7 @@ fn main() {
         }
 
         let nvowels = vowels.count_ones();
+        let ngvowels = gvowels.count_ones();
         for (j, (l, lws)) in lwords[i..].iter().enumerate() {
             if seen & (1 << *l) != 0 {
                 continue;
@@ -141,11 +157,15 @@ fn main() {
                     continue;
                 }
 
+                if ngvowels - (gvowels & (w | seen)).count_ones() < 4 - d as u32 {
+                    continue;
+                }
+
                 ws.push(w);
                 solve(
                     translations,
                     lwords,
-                    vowels,
+                    pvowels,
                     i + j + 1,
                     ws,
                     w | seen,
@@ -158,7 +178,7 @@ fn main() {
                 solve(
                     translations,
                     lwords,
-                    vowels,
+                    pvowels,
                     i + j + 1,
                     ws,
                     seen,
@@ -169,5 +189,5 @@ fn main() {
         }
     }
 
-    solve(&translations, &lwords, vowels, 0, &mut vec![], 0, false);
+    solve(&translations, &lwords, (vowels, gvowels), 0, &mut vec![], 0, false);
 }
