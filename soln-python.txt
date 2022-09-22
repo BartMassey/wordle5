@@ -1,6 +1,7 @@
 12947 words
 5176 translations
 vowels: easoirlun
+vowels (pruned): easoirlun
 waqfs jumby vozhd glent prick 
 waqfs jumby vozhd kreng clipt 
 waqfs jumby vozhd pling treck 
@@ -12,6 +13,6 @@ waqfs cylix/xylic vozhd brung kempt
 fjord vibex waltz gucks nymph 
 fjord vibex waltz gymps chunk 
 
-real	0m0.711s
-user	0m0.707s
-sys	0m0.004s
+real	0m0.714s
+user	0m0.706s
+sys	0m0.008s

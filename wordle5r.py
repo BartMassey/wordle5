@@ -34,17 +34,36 @@ for l in range(26):
         lwords.append((l, words))
 lwords.sort(key = lambda e: len(e[1]))
 
+def to_chars(letters):
+    return ''.join(chr(ord('a') + l) for l in letters)
+
 vowels = 0
-vowel_letters = ""
+vowel_letters = []
 remaining = list(wsets)
 for l, _ in reversed(lwords):
-    vowel_letters += chr(ord('a') + l)
+    vowel_letters.append(l)
     vowels |= 1 << l
     remaining = [w for w in remaining if (w & vowels) == 0]
     if not remaining:
         break
 nvowels = vowels.bit_count()
-print(f"vowels: {vowel_letters}")
+print(f"vowels: {to_chars(vowel_letters)}")
+
+def prune(vowel_letters, vowels):
+    cvowels = vowels
+    candidates = reversed(vowel_letters)
+    cletters = [next(candidates)]
+    for l in candidates:
+        cvowels &= ~(1 << l)
+        for w in wsets:
+            if (w & cvowels) == 0:
+                cvowels |= 1 << l
+                cletters.append(l)
+                break
+    return list(reversed(cletters)), cvowels
+
+vowel_letters, vowels = prune(vowel_letters, vowels)
+print(f"vowels (pruned): {to_chars(vowel_letters)}")
 
 seen = 0
 nlwords = []

@@ -58,19 +58,48 @@ fn main() {
     }
     lwords.sort_unstable_by_key(|(_, ws)| ws.len());
 
+    fn to_chars(letters: &[u32]) -> String {
+        letters
+            .iter()
+            .copied()
+            .map(|l| {
+                char::from_u32(l + 'a' as u32).unwrap()
+            })
+            .collect()
+    }
+
     let mut vowels = 0;
-    let mut vowel_letters = String::new();
+    let mut vowel_letters = Vec::with_capacity(26);
     let mut remaining = wsets.clone();
     for (l, _) in lwords.iter().rev() {
-        let c = char::from_u32('a' as u32 + *l).unwrap();
-        vowel_letters.push(c);
+        vowel_letters.push(*l);
         vowels |= 1 << *l;
         remaining.retain(|w| (w & vowels) == 0);
         if remaining.is_empty() {
             break;
         }
     }
-    println!("vowels: {vowel_letters}");
+    println!("vowels: {}", to_chars(&vowel_letters));
+
+    let prune = |vowel_letters: &[u32], vowels: u32| -> (Vec<u32>, u32) {
+        let mut cvowels = vowels;
+        let mut candidates = vowel_letters.iter().copied().rev();
+        let mut cletters = Vec::with_capacity(vowel_letters.len());
+        cletters.push(candidates.next().unwrap());
+        for l in candidates {
+            cvowels &= !(1 << l);
+            for &w in wsets.iter() {
+                if (w & cvowels) == 0 {
+                    cvowels |= 1 << l;
+                    cletters.push(l);
+                    break;
+                }
+            }
+        }
+        (cletters.into_iter().rev().collect(), cvowels)
+    };
+    let (vowel_letters, vowels) = prune(&vowel_letters, vowels);
+    println!("vowels (pruned): {}", to_chars(&vowel_letters));
 
     let mut seen = 0;
     lwords.retain_mut(|(l, ws)| {
