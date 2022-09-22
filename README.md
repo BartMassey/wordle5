@@ -5,15 +5,11 @@ This is code for a demo of rewriting Python to Rust.  The
 idea is to take a naïve Python Wordle5 solver inspired by
 Matt Parker's Python solver and speed it up.
 
-This version tries to "prune" the pseudovowels themselves to
-reduce the set size. It produces no gain on the
-currently-computed pseudovowels. The Python here runs in
-about 710ms.  The Rust here runs in about 11ms. The speedup
-for Rust is about 65×.
-
-The timing data is quite suspect at this point: have
-confirmed that it is not being measured
-accurately. Different tooling is needed.
+This version uses greedy pruning to produce an extra set of
+7 pseudovowels. This set is used along with the original set
+of 9 pseudovowels in vowel pruning.  The Python here runs in
+about 373ms.  The Rust here runs in about 9ms. The speedup
+for Rust is about 40×.
 
 This work is made available under the "MIT License". Please
 see the file `LICENSE.txt` in this distribution for license

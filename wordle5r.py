@@ -46,8 +46,17 @@ for l, _ in reversed(lwords):
     remaining = [w for w in remaining if (w & vowels) == 0]
     if not remaining:
         break
-nvowels = vowels.bit_count()
-print(f"vowels: {to_chars(vowel_letters)}")
+
+gvowels = 0
+gvowel_letters = []
+glwords = [[l, list(ws)] for l, ws in lwords]
+while glwords:
+    l, _ = max(glwords, key = lambda g : len(g[1]))
+    gvowel_letters.append(l)
+    gvowels |= 1 << l
+    for g in glwords:
+        g[1] = list(filter(lambda w: (w & gvowels) == 0, g[1]))
+    glwords = list(filter(lambda g: g[1], glwords))
 
 def prune(vowel_letters, vowels):
     cvowels = vowels
@@ -63,7 +72,12 @@ def prune(vowel_letters, vowels):
     return list(reversed(cletters)), cvowels
 
 vowel_letters, vowels = prune(vowel_letters, vowels)
-print(f"vowels (pruned): {to_chars(vowel_letters)}")
+nvowels = vowels.bit_count()
+print(f"pseudovowels: {to_chars(vowel_letters)}")
+
+gvowel_letters, gvowels = prune(gvowel_letters, gvowels)
+ngvowels = gvowels.bit_count()
+print(f"greedy pseudovowels: {to_chars(gvowel_letters)}")
 
 seen = 0
 nlwords = []
@@ -93,6 +107,9 @@ def solve(i, ws, seen, skipped):
                 continue
 
             if nvowels - (vowels & (w | seen)).bit_count() < 4 - d:
+                continue
+
+            if ngvowels - (gvowels & (w | seen)).bit_count() < 4 - d:
                 continue
 
             ws.append(w)
