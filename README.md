@@ -201,9 +201,23 @@ and then using
 
     realtime target/x86_64-unknown-linux-musl/release/wordle5 words-nyt-wordle.txt
 
-I've tried
-[profile-guided optimization](https://doc.rust-lang.org/rustc/profile-guided-optimization.html),
-but it doesn't seem to help.
+Some of the things I have tried to improve performance:
+
+* I've tried
+  [profile-guided optimization](https://doc.rust-lang.org/rustc/profile-guided-optimization.html),
+  but it doesn't seem to help.
+
+* I've tried putting everything on a RAMdisk, but it doesn't
+  seem to help.
+
+* I tried going to `no_std` to get rid of the 2-3ms of
+  startup overhead, thinking it was due to Rust startup This
+  was a massive uglification of the code, and produced no
+  noticeable speedup.
+
+* I used parallelism for the longest time. As the program
+  got faster, the speedups got microscopic. At this point we
+  are probably limited by data access rather than CPU.
 
 At this point, the performance is really fragile; small
 tweaks make hard-to-understand differences. Further, setup
@@ -217,15 +231,6 @@ In terms of overheads, the remaining possibilites are ugly.
 * One could cheat massively by compiling the pre-digested
   dictionaries into the program to save a millisecond or
   two, but ugh.
-
-* I tried going to `no_std` to get rid of the 2-3ms of
-  startup overhead, thinking it was due to Rust startup This
-  was a massive uglification of the code, and produced no
-  noticeable speedup.
-
-* I used parallelism for the longest time. As the program
-  got faster, the speedups got microscopic. At this point we
-  are probably limited by data access rather than CPU.
 
 ### Branches
 
