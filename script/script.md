@@ -30,11 +30,11 @@ the Wordle game.
 
 The first step is to find out what the legal guess words for
 Wordle are: the "dictionary" for the puzzle. Fortunately
-Parker has supplied us with some approximation to the
-official New York Times Wordle dictionary; it looks the same
-as other sources on the Internet. It doesn't really matter,
-though: our job is to work with any dictionary we are given,
-and this one will work for comparing.
+Parker has supplied us with some official New York Times
+Wordle dictionary; it looks the same as other sources on the
+Internet. It doesn't really matter, though: our job is to
+work with any dictionary we are given, and this one will
+work for comparing.
 
 This dictionary has 12,945 words, most of them pretty
 wacky. Here's the first five words
@@ -57,7 +57,7 @@ solution
     NYMPH
 
 "Best" here means the most "real" words: VIBEX is pretty
-garbage, and GUCKS is questionable. You might prefer
+garbage, and GUCKS is questionable. You might prefer this
 
     FJORD
     VIBEX
@@ -67,7 +67,7 @@ garbage, and GUCKS is questionable. You might prefer
 
 but honestly GYMPS seems worse than GUCKS to me. Both of
 these solutions leave out Q. There are eight more solutions,
-but all of these use both of
+but they all use both of these words
 
     WAQFS
     VOZHD
@@ -75,22 +75,13 @@ but all of these use both of
 so… no.
 
 Finding 25 different letters in 25 positions means that
-there can be no duplicate letters within a word.  I used
-this UNIX command to filter out the words with duplicate
-letters and count the rest.
+there can be no duplicate letters within a word.  I used a
+UNIX command to filter out the words with duplicate letters
+and count the rest.
 
     egrep -v '(.).*\1' words-nyt-wordle.txt | wc -l
 
 Turns out we're down to 8,310 words.
-
-Some playing with the dictionary shows that all but one of
-these 8,310 words contains an A, E, I, O, U or Y. That one
-is
-
-    CRWTH
-
-which uses W as a vowel. This will be annoying and important
-later.
 
 ## Understanding Parker's Solver
 
@@ -99,7 +90,7 @@ it. His initial solution was written in Python, was very
 simple, and ran for more than 31 days. 31 days.
 
 The dumb way to solve Wordle5 is to pick every combination
-of 5 words from our 8,310 word filtered dictionary and see
+of 5 words from our 8,310-word filtered dictionary and see
 if it's a solution. Some fancy math will show that the
 number of such combinations, written
 
@@ -108,7 +99,8 @@ number of such combinations, written
 and pronounced "8310 choose 5", is more than 10^17 (1 with
 17 zeros). This way madness lies. The fastest supercomputer
 available today would likely take a week to check all the
-possibilities — it would cost millions of dollars.
+possibilities — it would cost at least tens of thousands of
+dollars.
 
 Parker's plan was to take some advantage of the fact that a
 solution can be built up piece by piece. If we try to find
@@ -122,7 +114,7 @@ second), which again is manageable for a computer.
 Parker chose to proceed by trying to extend each pair of
 legal word pairs to get a four-letter group. That's about
 5.7 trillion groups to consider, so we won't be trying
-that. For each of these four-letter groups, Parker then
+that. For each of these four-letter groups, Parker
 tried to extend the group to a five-letter
 solution. Frankly, I'm amazed it only took a month on
 Parker's box in Python.
@@ -137,13 +129,13 @@ word to a two-word solution, but most of those extensions
 won't extend to three words, much less four. The classic way
 to write this approach is using *recursion*, like this:
 
-    To show all solutions at depth d, given a partial solution p:
-         If d is five, p is a solution. Display it.
+    To show all solutions at depth d, given a partial solution P:
+         If d is five, P is a solution. Display it.
          Otherwise, for each word w in the dictionary
-             If w is compatible with p
-                 Show all solutions at depth d + 1 with p + w
+             If w is compatible with P
+                 Show all solutions at depth d + 1 with P + w
 
-    Show all solutions at depth 0 with partial solution p empty
+    Show all solutions at depth 0 with partial solution P empty
 
 There's some fancy ways to speed this up, but that's the
 basic idea.
@@ -168,7 +160,7 @@ extend to five words. For the record, it's these 10:
 These solutions are in alphabetical order, since that's the
 order we're looking at words in. "CYLIX/XYLIC" is because
 these so-called words are anagrams: you can make one from
-the other by rearranging letters.
+the other by rearranging the letters.
 
 ## Looking At The Internet's Solvers
 
@@ -191,16 +183,14 @@ of that is using Golang, a compiled language that runs up to
 
 That's where it would have ended for me, except a Redditor
 asked for help speeding up their Rustlang version of Fred
-Overflow's 100 millisecond program to match the time of the
-Golang version. So I did. But looking at Fred
+Overflow's 100 millisecond program. So I did. But looking at Fred
 Overflow's time, I said to myself "OK. I have a PhD in State
 Space search. I'm supposed to know how to do this stuff. I
 wonder if I can do it in *one* millisecond?"
 
-Spoiler alert: I can't. But I'm under 7ms. The best credible
-solution I've seen reported so far is 25ms. I'm about a
-factor of four faster. The rest of this video is about how I
-got this result.
+Spoiler alert: I can't. But I'm around 5ms. The best
+credible solution I've seen reported so far is 25ms. The
+rest of this video is about how I got this result.
 
 ## Rewriting It In Rust
 
@@ -233,7 +223,7 @@ words. For us that's
     462 V
     646 F
 
-which I found with a simple UNIX command
+which I found with a UNIX command
 
     for l in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
     do
@@ -256,23 +246,23 @@ place, and few choices for what they are.
 
 Our algorithm now looks something like this
 
-    Make a list ls of letters in increasing frequency order
+    Make a list L of letters in increasing frequency order
 
-    To show all solutions at depth d, given a position i in ls
-      and a partial solution p:
-         If d is five, p is a solution. Display it.
+    To show all solutions at depth d, given a position i in L
+      and a partial solution P:
+         If d is five, P is a solution. Display it.
          Find the letter l at the first position j >= i
-           in ls that is ok with the partial solution
+           in L that is ok with the partial solution
          For each word w in the dictionary containing l
-             If w is compatible with p
-                 Show all solutions at depth d + 1 with j + 1, p + w
-         Show all solutions at depth d with position j + 1, p (skip l)
+             If w is compatible with P
+                 Show all solutions at depth d + 1 with j + 1, P + w
+         Show all solutions at depth d with position j + 1, P (skip l)
 
     Show all solutions at depth 0 with empty partial solution and i at 0
 
-I've implemented this solution in both Rust and Python. The
-Python runs in about one second, more than 3600 times faster
-than it did before, and 20 times faster than the old Rust
+I've programmed this solution in both Rust and Python. The
+Python runs in about one second: more than 3600 times faster
+than it ran before, 20 times faster than the old Rust
 version. The Rust runs in about 15 milliseconds, about 70
 times faster than the Python.
 
@@ -283,3 +273,14 @@ search implementation would have got us here.
 ## Remove "Impossible" Words From The Search
 
 
+
+## Stop When Out Of Vowels
+
+Some playing with the dictionary shows that all but one of
+our 8,310 words contains an A, E, I, O, U or Y. That one is
+
+    CRWTH
+
+which uses W as a vowel. This is annoying, but such is life.
+Anyway, every word contains an A, E, I, O, U, Y or W. So
+there's that.
