@@ -19,9 +19,26 @@ specifically, I started by responding to this
 
 Parker's original solution took about a month: over 2.7
 million seconds.  This program currently solves the problem
-in about 6ms for me, more than 8.5 orders of magnitude
-faster. See the [Performance](#performance) section below
-for much more information.
+in about 5ms for me, more than 8.5 orders of magnitude
+faster. See the [Performance](#performance) section for much
+more information.
+
+## Build and Run
+
+Build the program with
+```
+cargo build --release
+```
+
+See the [Features](#features) section for a list of
+build features.
+
+Invoke the program with a list of the dictionary files to be
+read. Dictionary files should consist of ASCII lowercase
+words, one per line. The easy invocation is
+```
+cargo run --release words-nyt-wordle.txt
+```
 
 ## Algorithm
 
@@ -152,14 +169,14 @@ modern processors have finally incorporated the damn thing,
 and that Rust's `count_ones()` intrinsic provides easy
 access to it.
 
-Convenience features that might slow things down slightly
-have been hidden behind Rust `feature` gates and must be
-turned on at compile time. See below for specifics.
+Various features have been hidden behind Rust `feature`
+gates and must be turned on at compile time. See below for
+specifics.
 
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 6ms single-threaded on my Ryzen 9 3900X desktop.
+in about 5ms single-threaded on my Ryzen 9 3900X desktop.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
@@ -167,9 +184,50 @@ the source of fastest solutions right now: I'm about 4×
 faster than the next-best reported solution.
 
 Timing shows that much of the runtime of the single-threaded
-version is spent in the solver proper: about 2ms for init,
-2ms for the solver, 2ms of unknown overhead. This leaves
+version is spent in the solver proper: about 1.5ms for init,
+2.5ms for the solver, 1ms of unknown overhead. This leaves
 little room for improvement by solver speedup.
+
+When building for best performance, you may want to build a
+statically-linked binary for more reproducible best times.
+On my box I use the `x86_64-unknown-linux-musl` build target
+for this. You may also want to use `RUSTC_FLAGS="-C
+target-cpu=native"`, although it doesn't make a difference
+for me. Note that you definitely want to time the binary:
+don't use `cargo run` when timing as it adds major overhead.
+On Linux, at least, the standard timing options are garbage.
+I recommend installing <http://github.com/BartMassey/realtime>
+and then using
+
+    realtime target/x86_64-unknown-linux-musl/release/wordle5 words-nyt-wordle.txt
+
+I've tried
+[profile-guided optimization](https://doc.rust-lang.org/rustc/profile-guided-optimization.html),
+but it doesn't seem to help.
+
+At this point, the performance is really fragile; small
+tweaks make hard-to-understand differences. Further, setup
+time and search time are looking pretty balanced. I think
+it's unlikely that further tuning of the existing approach
+can make this code dramatically quicker: a whole new solver
+algorithm would be needed.
+
+In terms of overheads, the remaining possibilites are ugly.
+
+* One could cheat massively by compiling the pre-digested
+  dictionaries into the program to save a millisecond or
+  two, but ugh.
+
+* I tried going to `no_std` to get rid of the 2-3ms of
+  startup overhead, thinking it was due to Rust startup This
+  was a massive uglification of the code, and produced no
+  noticeable speedup.
+
+* I used parallelism for the longest time. As the program
+  got faster, the speedups got microscopic. At this point we
+  are probably limited by data access rather than CPU.
+
+### Branches
 
 The `main` branch code uses `std::fs::read_to_string()`
 followed by line splitting of the string to read the
@@ -202,52 +260,21 @@ Rust versions of all the stages of the construction of
 The branches `retro2-par` and `retro2-par-fast` in this repo
 contain parallelized versions of the `retro2` code with
 naïve and pruned search. The `retro2-par-fast` branch has
-the fastest Python version currently.
+the fastest Python version currently, at around 120ms.
 
-When building for best performance, you may want to build a
-statically-linked binary for more reproducible best times.
-On my box I use the `x86_64-unknown-linux-musl` build target
-for this. You may also want to use `RUSTC_FLAGS="-C
-target-cpu=native"`, although it doesn't make a difference
-for me. Note that you definitely want to time the binary:
-don't use `cargo run` when timing as it adds major overhead.
-
-I've tried
-[profile-guided optimization](https://doc.rust-lang.org/rustc/profile-guided-optimization.html),
-but it doesn't seem to help.
+### Features
 
 To see node counts from the solver, build with the
 `instrument` feature. This will display node counts at each
-search tree depth as well as a total.
+search tree depth as well as a total node count to `stderr`.
 
-To get times for initialization and solver, build with the
-`timing` feature. This will display the wall-clock time for
-each of these pieces
+To get times for initialization, solver, and output build
+with the `timing` feature. This will display the wall-clock
+time for each of these pieces to `stderr`.
 
-At this point, the performance is really fragile; small
-tweaks make hard-to-understand differences. Further, setup
-time and search time are looking pretty balanced. I think
-it's unlikely that further tuning of the existing approach
-can make this code dramatically quicker: a whole new solver
-algorithm would be needed.
-
-In terms of overheads, the remaining possibilites are ugly.
-
-* One could cheat massively by
-  compiling the pre-digested dictionaries into the program to
-  save a millisecond or two, but ugh.
-
-* I tried going to `no_std` to get rid of the 2-3ms of
-  startup overhead, thinking it was due to Rust startup This
-  was a massive uglification of the code, and produced no
-  noticeable speedup.
-
-* I used parallelism for the longest time. As the program
-  got faster, the speedups got microscopic. At this point we
-  are probably limited by data access rather than CPU.
-
-I've tried to make my solution clear and readable. Please
-see the Rustdoc and source code for details.
+To get end-to-end runtime in `main()`, build with the
+`full-timing` feature. This will display the wall-clock time
+for this piece to `stderr`.
 
 ## Word Lists
 
@@ -265,24 +292,6 @@ see the Rustdoc and source code for details.
   as the union of wordlists in
   [my `wordlists` repo](https://github.com/BartMassey/wordlists),
   filtered the same as `words-alpha.txt`.
-
-## Usage
-
-Build the program with
-```
-cargo build --release
-```
-
-Invoke the program with a list of the dictionary files to be
-read. Dictionary files should consist of ASCII lowercase
-words, one per line. The easy invocation is
-```
-cargo run --release words-nyt-wordle.txt
-```
-
-To get a pseudovowel list and node count instrumentation,
-compile with feature `instrument`. To get timings for
-initialization and solve, compile with feature `timing`.
 
 ## License
 

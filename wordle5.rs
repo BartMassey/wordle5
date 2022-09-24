@@ -25,7 +25,7 @@ mod instrument {
 #[cfg(feature = "instrument")]
 use instrument::*;
 
-#[cfg(feature = "timing")]
+#[cfg(any(feature = "timing", feature = "full-timing"))]
 use howlong::HighResolutionTimer;
 
 /// Type of bitsets of letters, encoded with bit 0 (LSB)
@@ -213,10 +213,7 @@ fn make_letter_space(dwords: &[LetterSet]) -> LetterSpace {
         if global {
             let mut letter_freqs: Vec<(usize, Char)> = (0..26)
                 .map(|l| {
-                    let count = dwords
-                        .iter()
-                        .filter(|&&w| w & (1 << l) != 0)
-                        .count();
+                    let count = dwords.iter().filter(|&&w| w & (1 << l) != 0).count();
                     (count, l)
                 })
                 .collect();
@@ -286,14 +283,17 @@ fn make_letter_space(dwords: &[LetterSet]) -> LetterSpace {
 
     let pseudovowels = find_pseudovowels(false);
     #[cfg(feature = "instrument")]
-    println!("pseudovowels: {}", letterset_string(pseudovowels));
+    eprintln!("pseudovowels: {}", letterset_string(pseudovowels));
 
     let mut global_pseudovowels = find_pseudovowels(true);
     if global_pseudovowels == pseudovowels {
         global_pseudovowels = 0;
     }
     #[cfg(feature = "instrument")]
-    println!("global pseudovowels: {}", letterset_string(global_pseudovowels));
+    eprintln!(
+        "global pseudovowels: {}",
+        letterset_string(global_pseudovowels)
+    );
 
     // Filter groups for legal pseudovowel usage.
     let ps = pseudovowels;
@@ -427,6 +427,9 @@ fn solve_sequential(space: &LetterSpace) -> Vec<Solution> {
 /// Solve a Wordle5 problem using dictionaries specified on
 /// the command line. Print each solution found.
 fn main() {
+    #[cfg(feature = "full-timing")]
+    let full_timer = HighResolutionTimer::new();
+
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();
 
@@ -441,17 +444,21 @@ fn main() {
     let space = make_letter_space(&ids);
 
     #[cfg(feature = "timing")]
-    println!("init: {:?}", timer.elapsed());
+    eprintln!("init time: {:?}", timer.elapsed());
 
     #[cfg(feature = "timing")]
     let timer = HighResolutionTimer::new();
 
+    // Solve the problem.
     let solve = solve_sequential(&space);
 
     #[cfg(feature = "timing")]
-    println!("solver: {:?}", timer.elapsed());
+    eprintln!("solve time: {:?}", timer.elapsed());
 
-    // Solve the problem and show any resulting solutions.
+    #[cfg(feature = "timing")]
+    let timer = HighResolutionTimer::new();
+
+    // Show any resulting solutions.
     for soln in solve.into_iter() {
         for id in soln {
             print!("{} ", dict[&id]);
@@ -459,12 +466,18 @@ fn main() {
         println!();
     }
 
+    #[cfg(feature = "timing")]
+    eprintln!("display time: {:?}", timer.elapsed());
+
+    #[cfg(feature = "full-timing")]
+    eprintln!("time: {:?}", full_timer.elapsed());
+
     #[cfg(feature = "instrument")]
     {
         let total: usize = NODES.iter().map(|c| c.load(Acquire)).sum();
-        println!("nodes: {total}");
+        eprintln!("nodes: {total}");
         for (depth, count) in NODES.iter().enumerate() {
-            println!("    {depth}: {}", count.load(Acquire));
+            eprintln!("    {depth}: {}", count.load(Acquire));
         }
     }
 }
