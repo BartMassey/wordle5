@@ -199,6 +199,11 @@ The branch `retro2` in this repo includes both Python and
 Rust versions of all the stages of the construction of
 `wordle5`, as recreated for expository purposes.
 
+The branches `retro2-par` and `retro2-par-fast` in this repo
+contain parallelized versions of the `retro2` code with
+naïve and pruned search. The `retro2-par-fast` branch has
+the fastest Python version currently.
+
 When building for best performance, you may want to build a
 statically-linked binary for more reproducible best times.
 On my box I use the `x86_64-unknown-linux-musl` build target
