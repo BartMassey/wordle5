@@ -6,3 +6,6 @@ edition = "2021"
 [[bin]]
 name = "wordle5r"
 path = "wordle5r.rs"
+
+[dependencies]
+rayon = "1.5.3"

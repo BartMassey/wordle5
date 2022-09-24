@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 fn main() {
     // Process arguments.
     let argv: Vec<String> = std::env::args().collect();
@@ -189,5 +191,10 @@ fn main() {
         }
     }
 
-    solve(&translations, &lwords, (vowels, gvowels), 0, &mut vec![], 0, false);
+    lwords[0].1.par_iter().for_each(|&w| {
+        solve(&translations, &lwords, (vowels, gvowels), 1, &mut vec![w], w, false);
+    });
+    lwords[1].1.par_iter().for_each(|&w| {
+        solve(&translations, &lwords, (vowels, gvowels), 2, &mut vec![w], w, true);
+    });
 }

@@ -2,6 +2,7 @@
 # Bart Massey 2022
 # Wordle5 solution in the style of Matt Parker's but with better pruning.
 
+import multiprocessing
 import sys
 
 with open(sys.argv[1], "r") as d:
@@ -120,4 +121,12 @@ def solve(i, ws, seen, skipped):
             solve(i + j + 1, ws, seen, True)
         return
 
-solve(0, [], 0, False)
+def solve1(w):
+    solve(1, [w], w, False)
+
+def solve2(w):
+    solve(2, [w], w, True)
+
+pool = multiprocessing.Pool()
+pool.map(solve1, lwords[0][1])
+pool.map(solve2, lwords[1][1])
