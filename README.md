@@ -298,6 +298,11 @@ for this piece to `stderr`.
   [my `wordlists` repo](https://github.com/BartMassey/wordlists),
   filtered the same as `words-alpha.txt`.
 
+## Acknowledgments
+
+Thanks to `@stew675` on YouTube for informative and
+thoughtful discussions.
+
 ## License
 
 This work is made available under the "MIT License."  Please

@@ -270,6 +270,28 @@ This is the power of good search: finding the right search
 space is everything. No amount of speeding up the old bad
 search implementation would have got us here.
 
+## The Pain Of "All Solutions"
+
+What I'd normally do now is a bunch of stuff to look in the
+part of the search space where solutions are likely to
+be. The goal would be to get to a solution quickly.
+
+That doesn't help here at all. The problem asks for all
+solutions. *All*. So we have to look everywhere
+eventually. If we want to speed this up, it will be about
+proving that solutions won't work without even looking at
+them.
+
+Fortunately we can do that.
+
+Let's start by seeing where we are spending our time. A bit
+of messing around shows that our core solver is run on about
+115,000 states. At 15ms runtime, this is about 130ns per
+state. Modern computers are scary fast.
+
+First, let's try an easy trick to shorten the time per state
+a little bit.
+
 ## Remove "Impossible" Words From The Search
 
 
