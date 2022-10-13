@@ -15,6 +15,10 @@
 
 use std::collections::HashMap as Map;
 
+use mimalloc::MiMalloc;
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 #[cfg(feature = "instrument")]
 mod instrument {
     pub use once_cell::sync::Lazy;

@@ -139,9 +139,15 @@ below for specifics.
 ## Performance
 
 My solution is blazingly fast, solving the standard problem
-in about 11ms single-threaded on my Ryzen 9 3900X desktop.
+in about 6ms single-threaded on my Ryzen 9 3900X desktop.
 Using `rayon` parallelism, or custom scoped-thread
-parallelism the solution time is about 10ms.
+parallelism the solution time is about the same.
+
+This branch uses `mimalloc` instead of the default
+allocator, and is slightly slower than with the default
+allocator. I'm guessing the lack of allocation in the core
+loop combines with a slightly-longer initialization time for
+`mimalloc` to get that difference.
 
 The comment thread on this
 [YouTube video](https://youtu.be/Y37WiO55bxs) seems to be
